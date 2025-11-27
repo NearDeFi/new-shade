@@ -19,6 +19,7 @@ pub struct Contract {
     pub approved_codehashes: IterableSet<Codehash>,
     pub agents: IterableMap<AccountId, Option<Codehash>>,
     pub requires_tee: bool,
+    pub mpc_contract_id: AccountId, 
 }
 
 #[near(serializers = [json])]
@@ -42,12 +43,13 @@ pub struct Agent {
 impl Contract {
     #[init]
     #[private]
-    pub fn init(owner_id: AccountId, requires_tee: bool) -> Self {
+    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, requires_tee: bool) -> Self {
         Self {
             owner_id,
+            mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
+            requires_tee,
             approved_codehashes: IterableSet::new(b"a"),
             agents: IterableMap::new(b"b"),
-            requires_tee,
         }
     }
 
@@ -87,7 +89,7 @@ impl Contract {
     ) -> Promise {
         self.require_approved_codehash();
 
-        chainsig::internal_request_signature(path, payload, key_type)
+        self.internal_request_signature(path, payload, key_type)
     }
 
     // Owner methods
@@ -114,6 +116,18 @@ impl Contract {
     pub fn remove_agent(&mut self, account_id: AccountId) {
         self.require_owner();
         self.agents.remove(&account_id);
+    }
+
+    // Update owner ID
+    pub fn update_owner_id(&mut self, owner_id: AccountId) {
+        self.require_owner();
+        self.owner_id = owner_id;
+    }
+    
+    // Update the MPC contract ID
+    pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
+        self.require_owner();
+        self.mpc_contract_id = mpc_contract_id;
     }
 
     // View methods
