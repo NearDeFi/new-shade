@@ -36,10 +36,13 @@ pub fn internal_request_signature(path: String, payload: String, key_type: Strin
         domain_id,
     };
 
-    let mpc_contract_id = if env::current_account_id().as_str().contains("testnet") {
+    let account_id = env::current_account_id().to_string();
+    let mpc_contract_id = if account_id.ends_with(".testnet") {
         "v1.signer-prod.testnet"
-    } else {
+    } else if account_id.ends_with(".near") {
         "v1.signer"
+    } else {
+        panic!("Contract needs to be deployed to an account ending in .near or .testnet");
     };
 
     mpc_contract::ext(mpc_contract_id.parse().unwrap())
