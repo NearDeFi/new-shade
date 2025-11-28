@@ -4,24 +4,22 @@ use sha2::{Digest as _, Sha256, Sha384};
 
 // TODO: Replace with external attestation crate
 
-
-
 pub fn verify_attestation(attestation: Attestation) -> String {
-  let collateral = get_collateral(attestation.collateral);
-  let quote = decode(attestation.quote_hex).unwrap();
-  let now = block_timestamp() / 1000000000;
-  let result = verify::verify(&quote, &collateral, now).expect("report is not verified");
-  let report = result.report.as_td10().unwrap();
-  let report_data = format!("{}", String::from_utf8_lossy(&report.report_data));
+    let collateral = get_collateral(attestation.collateral);
+    let quote = decode(attestation.quote_hex).unwrap();
+    let now = block_timestamp() / 1000000000;
+    let result = verify::verify(&quote, &collateral, now).expect("report is not verified");
+    let report = result.report.as_td10().unwrap();
+    let report_data = format!("{}", String::from_utf8_lossy(&report.report_data));
 
-  // verify the predecessor matches the report data
-  require!(
-      env::predecessor_account_id() == report_data,
-      format!("predecessor_account_id != report_data: {}", report_data)
-  );
+    // verify the predecessor matches the report data
+    require!(
+        env::predecessor_account_id() == report_data,
+        format!("predecessor_account_id != report_data: {}", report_data)
+    );
 
-  let rtmr3 = encode(report.rt_mr3.to_vec());
-  verify_codehash(attestation.tcb_info, rtmr3)
+    let rtmr3 = encode(report.rt_mr3.to_vec());
+    verify_codehash(attestation.tcb_info, rtmr3)
 }
 
 fn get_collateral(raw_quote_collateral: String) -> QuoteCollateralV3 {

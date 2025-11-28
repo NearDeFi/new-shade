@@ -35,6 +35,13 @@ export interface AgentStatus {
     whitelisted: boolean;
 }
 
+interface ContractAgent {
+    account_id: string;
+    verified: boolean;
+    whitelisted: boolean;
+    codehash?: string | null;
+}
+
 export interface AgentConfig {
     networkId?: "testnet" | "mainnet";
     agentContractId?: string;
@@ -156,14 +163,14 @@ export class Agent {
     }
 
     async isRegistered(): Promise<AgentStatus> {
-        const agent = await this.view<{ account_id: string; verified: boolean; whitelisted: boolean; codehash: string | null } | null>({
+        const res = await this.view<ContractAgent | null>({
             methodName: "get_agent",
             args: {
                 account_id: this.agentAccountId,
             },
         });
         
-        if (agent === null) {
+        if (res === null) {
             return {
                 verified: false,
                 whitelisted: false,
@@ -171,8 +178,8 @@ export class Agent {
         }
         
         return {
-            verified: agent.verified,
-            whitelisted: agent.whitelisted,
+            verified: res.verified,
+            whitelisted: res.whitelisted,
         };
     }
 
@@ -271,21 +278,26 @@ export class Agent {
     async requestSignature(params: {
         path: string;
         payload: string;
-        keyType?: SignatureKeyType;
+        keyType?: SignatureKeyType | string;
         deposit?: bigint | string | number;
         gas?: bigint | string | number;
         waitUntil?: TxExecutionStatus;
     }): Promise<SignatureResponse> {
+        // Normalize keyType to string value
+        const keyType: string = params.keyType 
+            ? (typeof params.keyType === 'string' ? params.keyType : params.keyType)
+            : SignatureKeyType.Ecdsa;
+
         return await this.call({
             methodName: "request_signature",
             args: {
                 path: params.path,
                 payload: params.payload,
-                keyType: params.keyType || SignatureKeyType.Ecdsa,
-                deposit: params.deposit,
-                gas: params.gas,
-                waitUntil: params.waitUntil,
+                key_type: keyType,
             },
+            deposit: params.deposit,
+            gas: params.gas,
+            waitUntil: params.waitUntil,
         });
     }
 

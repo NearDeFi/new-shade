@@ -1,0 +1,30 @@
+{
+  "name": "my-shade-agent-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "docker:build": "sudo docker build --platform linux/amd64 -t pivortex/my-app:latest .",
+    "docker:build:no-cache": "sudo docker build --no-cache --platform linux/amd64 -t pivortex/my-app:latest .",
+    "docker:push": "sudo docker push pivortex/my-app",
+    "docker:prune": "sudo docker system prune",
+    "phala:deploy": "phala cvms create --name my-app --vcpu 1 --compose ./docker-compose.yaml --env-file ./.env.development.local"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.15.0",
+    "@neardefi/shade-api-ts": "file:../shade-api-ts",
+    "chainsig.js": "^1.1.11",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.11.1",
+    "hono": "^4.8.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

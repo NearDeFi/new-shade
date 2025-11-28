@@ -1,3 +1,4 @@
+use dcap_qvl::{verify, QuoteCollateralV3};
 use hex::{decode, encode};
 use near_sdk::{
     env::{self, block_timestamp},
@@ -5,7 +6,6 @@ use near_sdk::{
     store::{IterableMap, IterableSet},
     AccountId, Gas, NearToken, PanicOnDefault, Promise,
 };
-use dcap_qvl::{verify, QuoteCollateralV3};
 
 mod chainsig;
 mod collateral;
@@ -19,7 +19,7 @@ pub struct Contract {
     pub approved_codehashes: IterableSet<Codehash>,
     pub agents: IterableMap<AccountId, Option<Codehash>>,
     pub requires_tee: bool,
-    pub mpc_contract_id: AccountId, 
+    pub mpc_contract_id: AccountId,
 }
 
 #[near(serializers = [json])]
@@ -54,12 +54,11 @@ impl Contract {
     }
 
     // Register an agent, this need to be called by the agent itself
-    pub fn register_agent(
-        &mut self,
-        attestation: Attestation,
-    ) -> bool {
+    pub fn register_agent(&mut self, attestation: Attestation) -> bool {
         // Check that the agent is whitelisted and not already registered
-        let codehash_opt = self.agents.get(&env::predecessor_account_id())
+        let codehash_opt = self
+            .agents
+            .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
         require!(codehash_opt.is_none(), "Agent already registered");
 
@@ -71,10 +70,14 @@ impl Contract {
             require!(self.approved_codehashes.contains(&codehash));
 
             // Register the agent with the codehash
-            self.agents.insert(env::predecessor_account_id(), Some(codehash));
+            self.agents
+                .insert(env::predecessor_account_id(), Some(codehash));
         } else {
             // Register the agent without TEE verification
-            self.agents.insert(env::predecessor_account_id(), Some("not-in-a-tee".to_string()));
+            self.agents.insert(
+                env::predecessor_account_id(),
+                Some("not-in-a-tee".to_string()),
+            );
         }
 
         true
@@ -106,7 +109,7 @@ impl Contract {
         self.approved_codehashes.remove(&codehash);
     }
 
-    // Whitelist an agent, it will still need to register 
+    // Whitelist an agent, it will still need to register
     pub fn whitelist_agent(&mut self, account_id: AccountId) {
         self.require_owner();
         self.agents.insert(account_id, None);
@@ -123,7 +126,7 @@ impl Contract {
         self.require_owner();
         self.owner_id = owner_id;
     }
-    
+
     // Update the MPC contract ID
     pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
         self.require_owner();
@@ -134,13 +137,11 @@ impl Contract {
 
     // Get the details of an agent
     pub fn get_agent(&self, account_id: AccountId) -> Option<Agent> {
-        self.agents.get(&account_id).map(|codehash_opt| {
-            Agent {
-                account_id: account_id.clone(),
-                verified: codehash_opt.is_some(),
-                whitelisted: true, 
-                codehash: codehash_opt.clone(),
-            }
+        self.agents.get(&account_id).map(|codehash_opt| Agent {
+            account_id: account_id.clone(),
+            verified: codehash_opt.is_some(),
+            whitelisted: true,
+            codehash: codehash_opt.clone(),
         })
     }
 
@@ -157,7 +158,7 @@ impl Contract {
     ) -> Vec<String> {
         let from = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(self.approved_codehashes.len() as u32);
-        
+
         self.approved_codehashes
             .iter()
             .skip(from as usize)
@@ -167,25 +168,19 @@ impl Contract {
     }
 
     // Get the list of agents
-    pub fn get_agents(
-        &self,
-        from_index: &Option<u32>,
-        limit: &Option<u32>,
-    ) -> Vec<Agent> {
+    pub fn get_agents(&self, from_index: &Option<u32>, limit: &Option<u32>) -> Vec<Agent> {
         let from = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(self.agents.len() as u32);
-        
+
         self.agents
             .iter()
             .skip(from as usize)
             .take(limit as usize)
-            .map(|(account_id, codehash_opt)| {
-                Agent {
-                    account_id: account_id.clone(),
-                    verified: codehash_opt.is_some(),
-                    whitelisted: true,
-                    codehash: codehash_opt.clone(),
-                }
+            .map(|(account_id, codehash_opt)| Agent {
+                account_id: account_id.clone(),
+                verified: codehash_opt.is_some(),
+                whitelisted: true,
+                codehash: codehash_opt.clone(),
             })
             .collect()
     }
@@ -200,7 +195,8 @@ impl Contract {
     // Require the caller to have a codehash in the approved list if TEE is required
     fn require_approved_codehash(&mut self) {
         if self.requires_tee {
-            let agent = self.get_agent(env::predecessor_account_id())
+            let agent = self
+                .get_agent(env::predecessor_account_id())
                 .expect("Agent not whitelisted");
             let codehash = agent.codehash.unwrap_or_else(|| {
                 panic!("Agent not registered");

@@ -25,7 +25,12 @@ const GAS: Gas = Gas::from_tgas(10);
 const ATTACHED_DEPOSIT: NearToken = NearToken::from_yoctonear(1);
 
 impl Contract {
-    pub(crate) fn internal_request_signature(&self, path: String, payload: String, key_type: String) -> Promise {
+    pub(crate) fn internal_request_signature(
+        &self,
+        path: String,
+        payload: String,
+        key_type: String,
+    ) -> Promise {
         let (payload_v2, domain_id) = match key_type.as_str() {
             "Eddsa" => (Payload::Eddsa(payload), 1),
             _ => (Payload::Ecdsa(payload), 0),
@@ -39,7 +44,7 @@ impl Contract {
 
         mpc_contract::ext(self.mpc_contract_id.clone())
             .with_static_gas(GAS)
-                .with_attached_deposit(ATTACHED_DEPOSIT)
-                .sign(request)
+            .with_attached_deposit(ATTACHED_DEPOSIT)
+            .sign(request)
     }
 }
