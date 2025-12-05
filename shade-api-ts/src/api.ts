@@ -35,14 +35,14 @@ export interface AgentStatus {
     whitelisted: boolean;
 }
 
-interface ContractAgent {
+interface GetAgentResponse {
     account_id: string;
     verified: boolean;
     whitelisted: boolean;
     codehash?: string | null;
 }
 
-export interface AgentConfig {
+export interface ShadeConfig {
     networkId?: "testnet" | "mainnet";
     agentContractId?: string;
     sponsor?: {
@@ -55,8 +55,8 @@ export interface AgentConfig {
     derivationPath?: string;
 }
   
-export class Agent {
-    private config: AgentConfig;
+export class ShadeClient {
+    private config: ShadeConfig;
     private tappdClient: TappdClient | undefined; // If undefined, then the agent is not running in a TEE
     private agentAccountId: string;
     private agentPrivateKeys: string[];
@@ -64,7 +64,7 @@ export class Agent {
     private keysDerivedWithTEE: boolean; // true if all keys were derived with TEE entropy, false otherwise
     
     // Private constructor so only `create()` can be used to create an instance
-    private constructor(config: AgentConfig, tappdClient: TappdClient | undefined, accountId: string, agentPrivateKeys: string[], keysDerivedWithTEE: boolean) {
+    private constructor(config: ShadeConfig, tappdClient: TappdClient | undefined, accountId: string, agentPrivateKeys: string[], keysDerivedWithTEE: boolean) {
         this.config = config;
         this.tappdClient = tappdClient;
         this.agentAccountId = accountId;
@@ -74,7 +74,7 @@ export class Agent {
     }
 
     // Async constructor
-    static async create(config: AgentConfig): Promise<Agent> {
+    static async create(config: ShadeConfig): Promise<ShadeClient> {
         // Validate config before creating instance
         if (config.networkId !== undefined && config.networkId !== "testnet" && config.networkId !== "mainnet") {
             throw new Error("networkId must be either 'testnet' or 'mainnet'");
@@ -146,7 +146,7 @@ export class Agent {
         }
 
         // Return agent instance
-        return new Agent(config, tappdClient, accountId, agentPrivateKeys, keysDerivedWithTEE);
+        return new ShadeClient(config, tappdClient, accountId, agentPrivateKeys, keysDerivedWithTEE);
     }
 
     /**
@@ -163,7 +163,7 @@ export class Agent {
     }
 
     async isRegistered(): Promise<AgentStatus> {
-        const res = await this.view<ContractAgent | null>({
+        const res = await this.view<GetAgentResponse | null>({
             methodName: "get_agent",
             args: {
                 account_id: this.agentAccountId,
@@ -306,8 +306,9 @@ export class Agent {
     }
 
     getAgentPrivateKeys(acknowledgeRisk: boolean = false): string[] {
-        if (!acknowledgeRisk) {
-            throw new Error("Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Please acknowledge the risk by setting acknowledgeRisk to true.");
+        // Add warning regardless 
+        if (!acknowledgeRisk) { // Add note about not using without calling agent contract 
+            throw new Error("Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE or use the. Please acknowledge the risk by setting acknowledgeRisk to true.");
         }
         return this.agentPrivateKeys;
     }

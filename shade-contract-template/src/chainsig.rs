@@ -1,5 +1,4 @@
 use crate::*;
-
 use near_sdk::ext_contract;
 use serde::Serialize;
 
@@ -15,6 +14,7 @@ pub struct SignRequest {
     pub path: String,
     pub domain_id: u64,
 }
+
 #[allow(dead_code)]
 #[ext_contract(mpc_contract)]
 trait MPCContract {
@@ -24,6 +24,7 @@ trait MPCContract {
 const GAS: Gas = Gas::from_tgas(10);
 const ATTACHED_DEPOSIT: NearToken = NearToken::from_yoctonear(1);
 
+#[near]
 impl Contract {
     pub(crate) fn internal_request_signature(
         &self,

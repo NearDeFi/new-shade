@@ -2,13 +2,16 @@ use dcap_qvl::{verify, QuoteCollateralV3};
 use hex::{decode, encode};
 use near_sdk::{
     env::{self, block_timestamp},
-    near, require,
+    near, require, log,
     store::{IterableMap, IterableSet},
-    AccountId, Gas, NearToken, PanicOnDefault, Promise,
+    AccountId, Gas, NearToken, PanicOnDefault, Promise, Timestamp,
+    json_types::U64,
 };
 
 mod chainsig;
 mod collateral;
+mod helper;
+mod views;
 
 pub type Codehash = String;
 
@@ -17,69 +20,89 @@ pub type Codehash = String;
 pub struct Contract {
     pub owner_id: AccountId,
     pub approved_codehashes: IterableSet<Codehash>,
-    pub agents: IterableMap<AccountId, Option<Codehash>>,
-    pub requires_tee: bool,
+    pub agents: IterableMap<AccountId, Agent>,
+    pub tee_config: TEEConfig,
     pub mpc_contract_id: AccountId,
 }
 
 #[near(serializers = [json])]
 pub struct Attestation {
-    quote_hex: String,
-    collateral: String,
-    checksum: String,
-    tcb_info: String,
+    pub quote_hex: String,
+    pub collateral: String,
+    pub checksum: String,
+    pub tcb_info: String,
+}
+
+#[near(serializers = [json, borsh])]
+pub struct Agent {
+    pub whitelisted: bool,
+    pub codehash: Option<Codehash>,
+    pub last_verified: Option<Timestamp>,
 }
 
 #[near(serializers = [json])]
 #[derive(Clone)]
-pub struct Agent {
-    account_id: AccountId,
-    verified: bool,
-    whitelisted: bool,
-    codehash: Option<Codehash>,
+pub struct AgentView {
+    pub account_id: AccountId,
+    pub whitelisted: bool,
+    pub verified: bool,
+    pub codehash: Option<Codehash>,
+    pub last_verified: Option<U64>,
+}
+
+#[near(serializers = [json, borsh])]
+#[derive(Clone)]
+pub enum TEEConfig {
+    OnTransactionVerification,
+    IntervalVerification(Timestamp),
+    OneTimeVerification,
+    NoVerification,
 }
 
 #[near]
 impl Contract {
     #[init]
     #[private]
-    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, requires_tee: bool) -> Self {
+    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, tee_config: TEEConfig) -> Self {
         Self {
             owner_id,
             mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
-            requires_tee,
+            tee_config,
             approved_codehashes: IterableSet::new(b"a"),
             agents: IterableMap::new(b"b"),
         }
     }
 
-    // Register an agent, this need to be called by the agent itself
-    pub fn register_agent(&mut self, attestation: Attestation) -> bool {
-        // Check that the agent is whitelisted and not already registered
-        let codehash_opt = self
-            .agents
+    // Verify an agent, this need to be called by the agent itself
+    pub fn verify_agent(&mut self, attestation: Attestation) -> bool {
+        // Check that the agent is whitelisted
+        self.agents
             .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
-        require!(codehash_opt.is_none(), "Agent already registered");
 
-        if self.requires_tee {
-            // Verify the attestation and get the codehash from the agent
-            let codehash = collateral::verify_attestation(attestation);
+        let (codehash, last_verified) = match self.tee_config {
+            TEEConfig::OnTransactionVerification => {
+                panic!("Attestation on transaction does not require an agent to generally verify");
+            }
+            TEEConfig::IntervalVerification(_) => {
+                // update the last verified timestamp
+                let codehash = self.check_attestation(attestation);
+                (codehash, Some(block_timestamp()))
+            }
+            TEEConfig::OneTimeVerification => {
+                let codehash = self.check_attestation(attestation);
+                (codehash, None)
+            }
+            TEEConfig::NoVerification => ("not-in-a-tee".to_string(), None),
+        };
 
-            // Verify the codehash is approved
-            require!(self.approved_codehashes.contains(&codehash));
+        self.agents.insert(env::predecessor_account_id(), Agent {
+            whitelisted: true,
+            codehash: Some(codehash),
+            last_verified: last_verified,
+        });
 
-            // Register the agent with the codehash
-            self.agents
-                .insert(env::predecessor_account_id(), Some(codehash));
-        } else {
-            // Register the agent without TEE verification
-            self.agents.insert(
-                env::predecessor_account_id(),
-                Some("not-in-a-tee".to_string()),
-            );
-        }
-
+        log!("Agent {} verified", env::predecessor_account_id());
         true
     }
 
@@ -89,8 +112,9 @@ impl Contract {
         path: String,
         payload: String,
         key_type: String,
+        attestation: Option<Attestation>,
     ) -> Promise {
-        self.require_approved_codehash();
+        self.require_verified_agent(attestation);
 
         self.internal_request_signature(path, payload, key_type)
     }
@@ -109,10 +133,15 @@ impl Contract {
         self.approved_codehashes.remove(&codehash);
     }
 
-    // Whitelist an agent, it will still need to register
+    // Whitelist an agent, it will still need to verify
+    // Note: This will override any existing entry, including verified agents (will unverify them)
     pub fn whitelist_agent(&mut self, account_id: AccountId) {
         self.require_owner();
-        self.agents.insert(account_id, None);
+        self.agents.insert(account_id, Agent {
+            whitelisted: true,
+            codehash: None,
+            last_verified: None,
+        });
     }
 
     // Remove an agent from the list of agents
@@ -131,77 +160,5 @@ impl Contract {
     pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
         self.require_owner();
         self.mpc_contract_id = mpc_contract_id;
-    }
-
-    // View methods
-
-    // Get the details of an agent
-    pub fn get_agent(&self, account_id: AccountId) -> Option<Agent> {
-        self.agents.get(&account_id).map(|codehash_opt| Agent {
-            account_id: account_id.clone(),
-            verified: codehash_opt.is_some(),
-            whitelisted: true,
-            codehash: codehash_opt.clone(),
-        })
-    }
-
-    // Get if the contract requires TEE verification
-    pub fn get_requires_tee(&self) -> bool {
-        self.requires_tee
-    }
-
-    // Get the list of approved codehashes
-    pub fn get_approved_codehashes(
-        &self,
-        from_index: &Option<u32>,
-        limit: &Option<u32>,
-    ) -> Vec<String> {
-        let from = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(self.approved_codehashes.len() as u32);
-
-        self.approved_codehashes
-            .iter()
-            .skip(from as usize)
-            .take(limit as usize)
-            .map(|codehash| codehash.clone())
-            .collect()
-    }
-
-    // Get the list of agents
-    pub fn get_agents(&self, from_index: &Option<u32>, limit: &Option<u32>) -> Vec<Agent> {
-        let from = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(self.agents.len() as u32);
-
-        self.agents
-            .iter()
-            .skip(from as usize)
-            .take(limit as usize)
-            .map(|(account_id, codehash_opt)| Agent {
-                account_id: account_id.clone(),
-                verified: codehash_opt.is_some(),
-                whitelisted: true,
-                codehash: codehash_opt.clone(),
-            })
-            .collect()
-    }
-
-    // Helper methods
-
-    // Require the caller to be the owner
-    fn require_owner(&mut self) {
-        require!(env::predecessor_account_id() == self.owner_id);
-    }
-
-    // Require the caller to have a codehash in the approved list if TEE is required
-    fn require_approved_codehash(&mut self) {
-        if self.requires_tee {
-            let agent = self
-                .get_agent(env::predecessor_account_id())
-                .expect("Agent not whitelisted");
-            let codehash = agent.codehash.unwrap_or_else(|| {
-                panic!("Agent not registered");
-            });
-            require!(self.approved_codehashes.contains(&codehash));
-        }
     }
 }

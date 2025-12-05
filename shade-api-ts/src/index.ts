@@ -1,5 +1,5 @@
 export type {
-    AgentConfig,
+    ShadeConfig,
     AgentStatus,
     Secp256k1SignatureResponse,
     Ed25519SignatureResponse,
@@ -7,7 +7,7 @@ export type {
 } from './api';
 
 export {
-    Agent,
+    ShadeClient,
     SignatureKeyType,
 } from './api';
 

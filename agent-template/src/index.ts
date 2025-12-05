@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import dotenv from "dotenv";
-import { Agent } from "@neardefi/shade-api-ts";
+import { ShadeClient } from "@neardefi/shade-api-ts";
 import ethAccount from "./routes/ethAccount";
 import agentAccount from "./routes/agentAccount";
 import transaction from "./routes/transaction";
@@ -12,15 +12,23 @@ if (process.env.NODE_ENV !== "production") {
   dotenv.config();
 }
 
+const agentContractId = process.env.AGENT_CONTRACT_ID;
+const sponsorAccountId = process.env.SPONSOR_ACCOUNT_ID;
+const sponsorPrivateKey = process.env.SPONSOR_PRIVATE_KEY;
+
+if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
+  throw new Error("Missing required environment variables AGENT_CONTRACT_ID, SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY");
+}
+
 // Initialize agent
-export const agent = await Agent.create({
+export const agent = await ShadeClient.create({
   networkId: "testnet",
-  agentContractId: process.env.AGENT_CONTRACT_ID as string,
+  agentContractId: agentContractId,
   sponsor: {
-    accountId: process.env.SPONSOR_ACCOUNT_ID as string,
-    privateKey: process.env.SPONSOR_PRIVATE_KEY as string,
+    accountId: sponsorAccountId,
+    privateKey: sponsorPrivateKey,
   },
-  derivationPath: "hi",
+  derivationPath: sponsorPrivateKey,
 });
 
 // Initialize app
