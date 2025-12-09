@@ -23,6 +23,7 @@ pub struct Contract {
     pub agents: IterableMap<AccountId, Agent>,
     pub tee_config: TEEConfig,
     pub mpc_contract_id: AccountId,
+    pub restrict_transactions: bool,
 }
 
 #[near(serializers = [json])]
@@ -63,13 +64,14 @@ pub enum TEEConfig {
 impl Contract {
     #[init]
     #[private]
-    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, tee_config: TEEConfig) -> Self {
+    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, tee_config: TEEConfig, restrict_transactions: bool) -> Self {
         Self {
             owner_id,
             mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
             tee_config,
             approved_codehashes: IterableSet::new(b"a"),
             agents: IterableMap::new(b"b"),
+            restrict_transactions,
         }
     }
 
@@ -85,7 +87,7 @@ impl Contract {
                 panic!("Attestation on transaction does not require an agent to generally verify");
             }
             TEEConfig::IntervalVerification(_) => {
-                // update the last verified timestamp
+                // Update the last verified timestamp
                 let codehash = self.check_attestation(attestation);
                 (codehash, Some(block_timestamp()))
             }
@@ -160,5 +162,10 @@ impl Contract {
     pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
         self.require_owner();
         self.mpc_contract_id = mpc_contract_id;
+    }
+
+    pub fn add_approved_transactions(&mut self, transactions: Vec<String>) {
+        self.require_owner();
+        // TODO
     }
 }
