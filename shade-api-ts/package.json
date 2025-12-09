@@ -43,13 +43,13 @@
     },
     "homepage": "https://github.com/NearDeFi/shade-agent-js#readme",
     "dependencies": {
-        "@near-js/accounts": "^2.2.2",
-        "@near-js/crypto": "^2.2.2",
-        "@near-js/providers": "^2.2.2",
-        "@near-js/signers": "^2.2.2",
-        "@near-js/tokens": "^2.2.2",
-        "@near-js/transactions": "^2.2.2",
-        "@near-js/types": "^2.2.2",
+        "@near-js/accounts": "^2.5.1",
+        "@near-js/crypto": "^2.5.1",
+        "@near-js/providers": "^2.5.1",
+        "@near-js/signers": "^2.5.1",
+        "@near-js/tokens": "^2.5.1 ",
+        "@near-js/transactions": "^2.5.1",
+        "@near-js/types": "^2.5.1",
         "dockerode": "^4.0.9",
         "near-seed-phrase": "^0.2.1"
     }

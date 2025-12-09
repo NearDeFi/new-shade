@@ -1,10 +1,11 @@
 services:
   shade-agent-app:
     environment:
+      AGENT_CONTRACT_ID: ${AGENT_CONTRACT_ID}
       SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
       SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
     platform: linux/amd64 # Explicitly set for TDX
-    # shade-agent-api-image
+    # shade-agent-app image
     image: pivortex/shade-agent-app@sha256:a86e3a4300b069c08d629a38d61a3d780f7992eaf36aa505e4527e466553e2e5
     container_name: shade-agent-app
     ports:

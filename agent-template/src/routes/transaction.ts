@@ -33,8 +33,6 @@ app.get("/", async (c) => {
       contractId,
     );
 
-    // Use the agent instance
-
     // Call the agent contract to get a signature for the payload
     const signRes = await agent.call({
       methodName: "request_signature",

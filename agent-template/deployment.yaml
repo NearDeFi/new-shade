@@ -9,46 +9,51 @@ network: testnet
 
 agent_contract: 
   # NEAR Account Id of the contract
-  contract_id: contract.testnet
+  # Fill this out
+  contract_id: 
   
   # Optional, if not provided the contract will not be deployed 
   # and it will assume the agent contract is deployed to contract_id
   # and is already initialized
-  deploy: 
+  deploy_custom: 
     # Amount to fund the agent contract with in NEAR
     funding_amount: 10
 
     # Choose ONE of the following (mutually exclusive):
     # Option 1: Build from contract source
-    path_to_contract: ./contract
+    build_from_source: 
+      path_to_contract: ./contract
     # Option 2: Use pre-built WASM file
     # path_to_wasm: ./target/near/shade_contract_template.wasm
 
-  init: 
-    method_name: init
-    # The OWNER_ACCOUNT_ID will automatically be replaced with the the account ID set up in the auth of the CLI
-    # The MPC_CONTRACT_ID will automatically be selected based on the network
-    # The REQUIRES_TEE will automatically be selected based on the environment
-    args: |
-      {
-        "owner_id": "${OWNER_ACCOUNT_ID}",
-        "mpc_contract_id": "${MPC_CONTRACT_ID}",
-        "requires_tee": "${REQUIRES_TEE}"
-      }
-    # tgas: 10
+    # Optional, if not provided the contract will not be initialized
+    init: 
+      method_name: new
+      # The OWNER_ACCOUNT_ID will automatically be replaced with the the account ID set up in the auth of the CLI
+      # The MPC_CONTRACT_ID will automatically be selected based on the network
+      # The REQUIRES_TEE will automatically be selected based on the environment
+      args: |
+        {
+          "owner_id": "<OWNER_ACCOUNT_ID>",
+          "mpc_contract_id": "<MPC_CONTRACT_ID>",
+          "requires_tee": "<REQUIRES_TEE>"
+        }
+      # tgas: 10
 
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only ran if environment is TEE
 docker:
-  tag: pivortex/my-app
+  # Fill this out
+  tag: 
   cache: true
+  docker_compose_path: ./docker-compose.yaml
 
 approve_codehash:
   method_name: approve_codehash
   # The CODEHASH will automatically be replaced with the codehash of the docker image once it's pushed to the registry
   args: |
     {
-      "codehash": "${CODEHASH}"
+      "codehash": "<CODEHASH>"
     }
   # tgas: 10
 
@@ -57,12 +62,14 @@ deploy_to_phala:
   docker_compose_path: ./docker-compose.yaml
   env_file_path: ./.env
 
-# Optional, if not provided the agent will not be automatically whitelisted
-auto_whitelist:
-  method_name: whitelist_agent
-  # The AGENT_ACCOUNT_ID will automatically be replaced with the account ID of the agent once the agent is deployed
-  args: |
-    {
-      "account_id": "${AGENT_ACCOUNT_ID}"
-    }
-  # tgas: 10
+
+# TODO: Add auto whitelisting
+# # Optional, if not provided the agent will not be automatically whitelisted
+# auto_whitelist:
+#   method_name: whitelist_agent
+#   # The AGENT_ACCOUNT_ID will automatically be replaced with the account ID of the agent once the agent is deployed
+#   args: |
+#     {
+#       "account_id": "<AGENT_ACCOUNT_ID>"
+#     }
+#   # tgas: 10

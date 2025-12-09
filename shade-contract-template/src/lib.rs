@@ -52,7 +52,7 @@ pub enum StorageKey {
 impl Contract {
     #[init]
     #[private]
-    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, requires_tee: bool) -> Self {
+    pub fn new(owner_id: AccountId, mpc_contract_id: AccountId, requires_tee: bool) -> Self {
         Self {
             owner_id,
             mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
@@ -62,8 +62,8 @@ impl Contract {
         }
     }
 
-    // Verify an agent, this needs to be called by the agent itself
-    pub fn verify_agent(&mut self, attestation: Attestation) -> bool {
+    // Register an agent, this needs to be called by the agent itself
+    pub fn register_agent(&mut self, attestation: Attestation) -> bool {
         // Check that the agent is whitelisted 
         self
             .agents
@@ -117,8 +117,8 @@ impl Contract {
         self.approved_codehashes.remove(&codehash);
     }
 
-    // Whitelist an agent, it will still need to verify
-    // Note: This will override any existing entry, including verified agents (will unverify them)
+    // Whitelist an agent, it will still need to register
+    // Note: This will override any existing entry, including registered agents (will unregister them)
     pub fn whitelist_agent(&mut self, account_id: AccountId) {
         self.require_owner();
         self.agents.insert(account_id, None);

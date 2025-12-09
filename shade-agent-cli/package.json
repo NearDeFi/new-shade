@@ -1,0 +1,43 @@
+{
+    "type": "module",
+    "name": "@neardefi/shade-agent-cli",
+    "version": "1.0.2",
+    "main": "src/cli.js",
+    "author": "Matt Lockyer <github.com/mattlockyer>",
+    "license": "MIT",
+    "dependencies": {
+        "@near-js/accounts": "^2.5.1",
+        "@near-js/crypto": "^2.5.1",
+        "@near-js/providers": "^2.5.1",
+        "@near-js/signers": "^2.5.1",
+        "@near-js/tokens": "^2.5.1",
+        "@near-js/utils": "^2.5.1",
+        "bs58": "^6.0.0",
+        "chalk": "^5.4.1",
+        "commander": "^14.0.0",
+        "dotenv": "^16.5.0",
+        "phala": "1.0.35",
+        "yaml": "^2.5.0"
+    },
+    "bin": {
+        "shade-agent-cli": "src/cli.js"
+    },
+    "description": "This cli will help you launch shade agents",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/NearDeFi/shade-agent-cli.git"
+    },
+    "keywords": [
+        "AI",
+        "agents",
+        "crypto",
+        "shade"
+    ],
+    "bugs": {
+        "url": "https://github.com/NearDeFi/shade-agent-cli/issues"
+    },
+    "homepage": "https://github.com/NearDeFi/shade-agent-cli#readme",
+    "scripts": {
+        "build": "rm -rf dist && mkdir dist && cp package.json ./dist/package.json && cp -r src ./dist/src"
+    }
+}
