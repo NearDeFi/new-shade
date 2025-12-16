@@ -1,6 +1,5 @@
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
 import * as dotenv from 'dotenv';
 import { KeyPairSigner } from '@near-js/signers';
@@ -31,7 +30,7 @@ function parseDeploymentConfig(deploymentPath) {
     const doc = parseYaml(raw) || {};
 
     const {
-        os, // Optional now - will auto-detect if not provided
+        os,
         environment,
         network,
         agent_contract,
@@ -181,44 +180,61 @@ function createDefaultProvider(network) {
     );
 }
 
-// Always use deployment.yaml in current working directory
-const cwdDeployment = path.resolve(process.cwd(), 'deployment.yaml');
-const deploymentConfig = parseDeploymentConfig(cwdDeployment);
+// Memoized config - only loads when getConfig() is called
+let cachedConfig = null;
 
-if (!process.env.ACCOUNT_ID) {
-    console.log('Make sure you have set the ACCOUNT_ID in .env');
-    process.exit(1);
-}
-const accountId = process.env.ACCOUNT_ID;
+/**
+ * Get the configuration. This function loads the config lazily and caches it.
+ * The config is only loaded when deploy command is used.
+ * @returns {Object} The configuration object
+ */
+export function getConfig() {
+    if (cachedConfig) {
+        return cachedConfig;
+    }
 
-if (!process.env.PRIVATE_KEY) {
-    console.log('Make sure you have set the PRIVATE_KEY in .env');
-    process.exit(1);
-}
-const privateKey = /** @type {import('@near-js/crypto').KeyPairString} */ (process.env.PRIVATE_KEY);
+    // Always use deployment.yaml in current working directory
+    const cwdDeployment = path.resolve(process.cwd(), 'deployment.yaml');
+    const deploymentConfig = parseDeploymentConfig(cwdDeployment);
 
-if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.build_docker_image) { // Only require PHALA API key if in TEE and build_docker_image is configured
-    if (!process.env.PHALA_KEY) {
-        console.log('Make sure you have set the PHALA_KEY in .env');
+    if (!process.env.ACCOUNT_ID) {
+        console.log('Make sure you have set the ACCOUNT_ID in .env');
         process.exit(1);
     }
+    const accountId = process.env.ACCOUNT_ID;
+
+    if (!process.env.PRIVATE_KEY) {
+        console.log('Make sure you have set the PRIVATE_KEY in .env');
+        process.exit(1);
+    }
+    const privateKey = /** @type {import('@near-js/crypto').KeyPairString} */ (process.env.PRIVATE_KEY);
+
+    if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.build_docker_image) { // Only require PHALA API key if in TEE and build_docker_image is configured
+        if (!process.env.PHALA_KEY) {
+            console.log('Make sure you have set the PHALA_KEY in .env');
+            process.exit(1);
+        }
+    }
+    const phalaKey = process.env.PHALA_KEY;
+
+    // Select provider based on network from deployment.yaml (default to testnet)
+    const networkId = deploymentConfig?.network;
+    const provider = createDefaultProvider(networkId);
+
+    const signer = KeyPairSigner.fromSecretKey(privateKey);
+
+    const masterAccount = new Account(accountId, provider, signer);
+    const contractAccount = new Account(deploymentConfig?.agent_contract?.contract_id, provider, signer);
+
+    cachedConfig = {
+        accountId,
+        privateKey,
+        phalaKey,
+        masterAccount,
+        contractAccount,
+        deployment: deploymentConfig,
+    };
+
+    return cachedConfig;
 }
-const phalaKey = process.env.PHALA_KEY;
 
-// Select provider based on network from deployment.yaml (default to testnet)
-const networkId = deploymentConfig?.network;
-const provider = createDefaultProvider(networkId);
-
-const signer = KeyPairSigner.fromSecretKey(privateKey);
-
-const masterAccount = new Account(accountId, provider, signer);
-const contractAccount = new Account(deploymentConfig?.agent_contract?.contract_id, provider, signer);
-
-export const config = {
-    accountId,
-    privateKey,
-    phalaKey,
-    masterAccount,
-    contractAccount,
-    deployment: deploymentConfig,
-};

@@ -6,6 +6,10 @@
     "author": "Matt Lockyer <github.com/mattlockyer>",
     "license": "MIT",
     "dependencies": {
+        "@inquirer/confirm": "^6.0.3",
+        "@inquirer/input": "^5.0.3",
+        "@inquirer/password": "^5.0.3",
+        "@inquirer/select": "^5.0.3",
         "@near-js/accounts": "^2.5.1",
         "@near-js/crypto": "^2.5.1",
         "@near-js/providers": "^2.5.1",
@@ -16,11 +20,12 @@
         "chalk": "^5.4.1",
         "commander": "^14.0.0",
         "dotenv": "^16.5.0",
+        "keytar": "^7.9.0",
         "phala": "1.0.35",
         "yaml": "^2.5.0"
     },
     "bin": {
-        "shade-agent-cli": "src/cli.js"
+        "shade": "src/cli.js"
     },
     "description": "This cli will help you launch shade agents",
     "repository": {

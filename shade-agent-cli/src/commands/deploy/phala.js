@@ -2,28 +2,22 @@ import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { config } from './config.js';
+import { getConfig } from '../../utils/config.js';
 
-// Use native fetch if available, otherwise require node-fetch
-/** @type {(input: any, init?: any) => Promise<any>} */
-let fetchFn;
-if (typeof fetch === 'function') {
-    fetchFn = fetch;
-} else {
-    fetchFn = (input, init) => import('node-fetch').then(({ default: fetch }) => fetch(input, init));
-}
+// Use native fetch (available in Node.js 18+)
+const fetchFn = globalThis.fetch;
 
 // Resolve the locally installed phala binary (installed via npm)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 function getPhalaBin() {
     // When CLI is installed globally or locally, phala should be in the CLI package's node_modules
-    // __dirname is src/, so go up one level to the package root, then to node_modules/.bin
-    const cliBin = path.resolve(__dirname, '..', 'node_modules', '.bin', 'phala');
+    // __dirname is commands/deploy/, so go up to src, then to package root, then to node_modules/.bin
+    const cliBin = path.resolve(__dirname, '..', '..', '..', 'node_modules', '.bin', 'phala');
     if (fs.existsSync(cliBin)) return cliBin;
     
     // If not found in .bin, try to find the phala package and get its bin from package.json
-    const phalaPkgPath = path.resolve(__dirname, '..', 'node_modules', 'phala');
+    const phalaPkgPath = path.resolve(__dirname, '..', '..', '..', 'node_modules', 'phala');
     if (fs.existsSync(phalaPkgPath)) {
         try {
             const pkgJson = JSON.parse(fs.readFileSync(path.join(phalaPkgPath, 'package.json'), 'utf8'));
@@ -43,6 +37,7 @@ function getPhalaBin() {
 const PHALA_COMMAND = getPhalaBin();
 
 function getAppNameFromDeployment() {
+    const config = getConfig();
     const appName = config.deployment?.deploy_to_phala?.app_name;
     if (!appName || typeof appName !== 'string') {
         console.log('deploy_to_phala.app_name is required in deployment.yaml');
@@ -52,6 +47,7 @@ function getAppNameFromDeployment() {
 }
 
 function loginToPhala() {
+    const config = getConfig();
     const phalaKey = config.phalaKey;
 
     // Logs in to Phala Cloud
@@ -77,6 +73,7 @@ function deployToPhala() {
     }
     
     try {
+        const config = getConfig();
         const composePath = config.deployment?.deploy_to_phala?.docker_compose_path;
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
@@ -108,6 +105,7 @@ function deployToPhala() {
 // They might not use port 3000, this should be dynamic
 
 export async function getAppUrl(appId) {
+    const config = getConfig();
     const phalaKey = config.phalaKey;
     console.log('Getting the app URL');
     const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
@@ -118,7 +116,8 @@ export async function getAppUrl(appId) {
         try {
             const response = await fetchFn(url, { headers: { 'X-API-Key': phalaKey } });
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.log(`HTTP error! status: ${response.status}`);
+                continue;
             }
             const data = await response.json();
             if (!data.error) {
@@ -155,3 +154,4 @@ export async function deployPhalaWorkflow() {
 
     return appId;
 }
+

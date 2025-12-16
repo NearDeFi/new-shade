@@ -1,40 +1,78 @@
 #!/usr/bin/env node
-import { dockerImage } from './docker.js';
-import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, initContract, approveCodehash } from './near.js';
-import { deployPhalaWorkflow, getAppUrl } from './phala.js';
-import { config } from './config.js';
-import { versionCheck } from './version-check.js';
+import { Command } from 'commander';
+import select from '@inquirer/select';
+import { deployCommand } from './commands/deploy/index.js';
+import { planCommand } from './commands/plan/index.js';
+import { authCommand } from './commands/auth/index.js';
+import { versionCheck } from './utils/version-check.js';
 
-async function main() {
+// Handle SIGINT (Ctrl+C) gracefully - exit without error
+process.on('SIGINT', () => {
+    process.exit(0);
+});
+
+// Handle unhandled promise rejections from inquirer (e.g., ExitPromptError)
+process.on('unhandledRejection', (error) => {
+    // Silently exit on SIGINT-related errors from inquirer
+    if (error && typeof error === 'object') {
+        const errorName = 'name' in error ? error.name : null;
+        const errorMessage = 'message' in error && typeof error.message === 'string' ? error.message : null;
+        if (errorName === 'ExitPromptError' || (errorMessage && errorMessage.includes('SIGINT'))) {
+            process.exit(0);
+            return;
+        }
+    }
+    // Let other errors be handled normally
+});
+
+const program = new Command();
+
+program
+    .name('shade')
+    .description('CLI tool for deploying and managing Shade agents')
+    .version('1.0.2');
+
+// Add commands
+const deployCmd = deployCommand();
+const planCmd = planCommand();
+const authCmd = authCommand();
+
+program.addCommand(deployCmd);
+program.addCommand(planCmd);
+program.addCommand(authCmd);
+
+// Global version check
+program.hook('preAction', async () => {
     await versionCheck();
+});
 
-    if (config.deployment.environment === 'TEE' && config.deployment.build_docker_image) {
-        await dockerImage();
-    }
-    if (config.deployment.agent_contract.deploy_custom) {
-        await createAccount();
+// Check if no command was provided
+const args = process.argv.slice(2);
+const knownCommands = ['auth', 'deploy', 'plan'];
+const firstArg = args[0];
 
-        if (config.deployment.agent_contract.deploy_custom.path_to_contract) {
-            await deployCustomContractFromSource();
+if (args.length === 0 || (firstArg && !knownCommands.includes(firstArg) && !firstArg.startsWith('-'))) {
+    // Show selector if no command provided or unknown command
+    try {
+        const command = await select({
+            message: 'What would you like to do?',
+            choices: [
+                { name: 'Deploy - Deploy a Shade agent', value: 'deploy' },
+                { name: 'Plan - Show deployment plan (dry-run)', value: 'plan' },
+                { name: 'Auth - Manage authentication credentials', value: 'auth' },
+            ],
+        });
+        
+        // Add the selected command to argv and continue with normal parsing
+        process.argv.push(command);
+    } catch (error) {
+        // Handle SIGINT gracefully - exit silently
+        if (error.name === 'ExitPromptError' || error.message?.includes('SIGINT')) {
+            process.exit(0);
         }
-
-        if (config.deployment.agent_contract.deploy_custom.path_to_wasm) {
-            await deployCustomContractFromWasm();
-        }
-
-        if (config.deployment.agent_contract.deploy_custom.init) {
-            await initContract();
-        }
-    }
-
-    if (config.deployment.approve_codehash) {
-        await approveCodehash();
-    }
-
-    if (config.deployment.deploy_to_phala && config.deployment.environment === 'TEE') {
-        const appId = await deployPhalaWorkflow();
-        await getAppUrl(appId);
+        throw error;
     }
 }
 
-main();
+// Parse normally (will use selected command if selector was shown)
+program.parse();

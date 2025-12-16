@@ -1,7 +1,8 @@
-import { execSync, spawn } from 'child_process';
+import { execSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 import { platform } from 'os';
-import { config } from './config.js';
+import { parse, stringify } from 'yaml';
+import { getConfig } from '../../utils/config.js';
 
 function needsSudo() {
     const platformName = platform();
@@ -12,13 +13,14 @@ function needsSudo() {
 export async function replaceInYaml(dockerTag, codehash) {
     console.log('Replacing the codehash in the yaml file');
     try {
+        const config = getConfig();
         const path = config.deployment.build_docker_image.docker_compose_path;
         const compose = readFileSync(path, 'utf8');
-        const { parse, stringify } = await import('yaml');
         const doc = parse(compose);
 
         if (!doc.services || !doc.services['shade-agent-app']) {
-            throw new Error(`Could not find services.shade-agent-app in ${path}`);
+            console.log(`Could not find services.shade-agent-app in ${path}`);
+            process.exit(1);
         }
 
         // Set image to tag@digest
@@ -36,6 +38,7 @@ export async function buildImage(dockerTag) {
     // Builds the image
     console.log('Building the Docker image');
     try {
+        const config = getConfig();
         const cacheFlag = config.deployment.build_docker_image.cache === false ? '--no-cache' : '';
         const dockerCmd = needsSudo() ? 'sudo docker' : 'docker';
         execSync(`${dockerCmd} build ${cacheFlag} --platform=linux/amd64 -t ${dockerTag}:latest .`, { stdio: 'pipe' });
@@ -68,6 +71,7 @@ export async function pushImage(dockerTag) {
 }
 
 export async function dockerImage() {
+    const config = getConfig();
     const dockerTag = config.deployment.build_docker_image.tag;
     // Builds the image
     await buildImage(dockerTag);
@@ -80,3 +84,4 @@ export async function dockerImage() {
 
     return newAppCodehash;
 }
+

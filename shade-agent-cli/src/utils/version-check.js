@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 // Get current version from package.json
 function getCurrentVersion() {
     try {
-        const packagePath = join(__dirname, '..', 'package.json');
+        const packagePath = join(__dirname, '..', '..', 'package.json');
         const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
         return packageJson.version;
     } catch (error) {
@@ -24,7 +24,6 @@ async function checkForUpdates() {
     const currentVersion = getCurrentVersion();
 
     try {
-        console.log('Checking for updates...');
         const response = await fetch('https://registry.npmjs.org/@neardefi/shade-agent-cli/latest');
         if (!response.ok) {
             console.log('Failed to check for version updates');
@@ -55,7 +54,6 @@ export async function versionCheck() {
         console.log(`\n${chalk.yellow('📦')} ${chalk.cyan('Update available:')} ${chalk.red(updateInfo.current)} ${chalk.gray('→')} ${chalk.green(updateInfo.latest)}`);
         console.log(`   ${chalk.blue('Run:')} ${chalk.white('npm update -g @neardefi/shade-agent-cli')}\n`);
         await sleep(5000);
-    } else {
-        console.log('You have the latest version of the shade-agent-cli');
-    }
-} 
+    } 
+}
+

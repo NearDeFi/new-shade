@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { NEAR } from '@near-js/tokens';
-import { config } from './config.js';
+import { parse } from 'yaml';
+import { getConfig } from '../../utils/config.js';
 
 // Sleep for the specified number of milliseconds
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -12,6 +13,7 @@ function tgasToGas(tgas) {
 }
 
 export async function createAccount() {
+    const config = getConfig();
     const contractId = config.deployment.agent_contract.contract_id;
     const masterAccount = config.masterAccount;
     const contractAccount = config.contractAccount;
@@ -49,11 +51,13 @@ export async function createAccount() {
 
 
 export async function deployCustomContractFromWasm() {
+    const config = getConfig();
     const wasmPath = config.deployment.agent_contract.deploy_custom.path_to_wasm;
     return await innerDeployCustomContractFromWasm(wasmPath);
 }
 
 async function innerDeployCustomContractFromWasm(wasmPath) {
+    const config = getConfig();
     const contractAccount = config.contractAccount;
     try {
         // Deploys the contract bytes (requires more funding)
@@ -92,6 +96,7 @@ function resolveWasmPath(absoluteSourcePath) {
 }
 
 export async function deployCustomContractFromSource() {
+    const config = getConfig();
     const sourcePath = config.deployment.agent_contract.deploy_custom.path_to_contract;
     try {
         // Resolve to absolute path for Docker volume mount
@@ -112,6 +117,7 @@ export async function deployCustomContractFromSource() {
 }
 
 export async function initContract() {
+    const config = getConfig();
     const contractAccount = config.contractAccount;
     const contractId = config.deployment.agent_contract.contract_id;
     // Initializes the contract based on deployment config
@@ -156,6 +162,7 @@ export async function initContract() {
 }
 
 export async function approveCodehash() {
+    const config = getConfig();
     const masterAccount = config.masterAccount;
     const contractId = config.deployment.agent_contract.contract_id;
     // Approves the specified codehash based on deployment config
@@ -178,12 +185,12 @@ export async function approveCodehash() {
             if (args.codehash === '<CODEHASH>' && requiresTee) {
                 const compose = fs.readFileSync(composePath, 'utf8');
                 // Parse YAML to specifically target shade-agent-app image
-                const { parse } = await import('yaml');
                 const doc = parse(compose);
                 const image = doc?.services?.['shade-agent-app']?.image;
                 const imageMatch = typeof image === 'string' ? image.match(/@sha256:([a-f0-9]{64})/i) : null;
                 if (!imageMatch) {
-                    throw new Error(`Could not find codehash for shade-agent-app in ${composePath}`);
+                    console.log(`Could not find codehash for shade-agent-app in ${composePath}`);
+                    process.exit(1);
                 }
                 args.codehash = imageMatch[1];
             } else if (config.deployment.environment === 'local') {
@@ -203,3 +210,4 @@ export async function approveCodehash() {
         process.exit(1);
     }
 }
+
