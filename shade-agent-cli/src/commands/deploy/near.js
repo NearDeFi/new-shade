@@ -13,7 +13,7 @@ function tgasToGas(tgas) {
 }
 
 export async function createAccount() {
-    const config = getConfig();
+    const config = await getConfig();
     const contractId = config.deployment.agent_contract.contract_id;
     const masterAccount = config.masterAccount;
     const contractAccount = config.contractAccount;
@@ -51,13 +51,13 @@ export async function createAccount() {
 
 
 export async function deployCustomContractFromWasm() {
-    const config = getConfig();
-    const wasmPath = config.deployment.agent_contract.deploy_custom.path_to_wasm;
+    const config = await getConfig();
+    const wasmPath = config.deployment.agent_contract.deploy_custom.wasm_path;
     return await innerDeployCustomContractFromWasm(wasmPath);
 }
 
 async function innerDeployCustomContractFromWasm(wasmPath) {
-    const config = getConfig();
+    const config = await getConfig();
     const contractAccount = config.contractAccount;
     try {
         // Deploys the contract bytes (requires more funding)
@@ -96,8 +96,8 @@ function resolveWasmPath(absoluteSourcePath) {
 }
 
 export async function deployCustomContractFromSource() {
-    const config = getConfig();
-    const sourcePath = config.deployment.agent_contract.deploy_custom.path_to_contract;
+    const config = await getConfig();
+    const sourcePath = config.deployment.agent_contract.deploy_custom.source_path;
     try {
         // Resolve to absolute path for Docker volume mount
         const absoluteSourcePath = path.resolve(process.cwd(), sourcePath);
@@ -117,7 +117,7 @@ export async function deployCustomContractFromSource() {
 }
 
 export async function initContract() {
-    const config = getConfig();
+    const config = await getConfig();
     const contractAccount = config.contractAccount;
     const contractId = config.deployment.agent_contract.contract_id;
     // Initializes the contract based on deployment config
@@ -129,8 +129,8 @@ export async function initContract() {
 
         const resolvePlaceholders = (val) => {
             if (typeof val === 'string') {
-                if (val === '<OWNER_ACCOUNT_ID>') return config.accountId;
-                if (val === '<MPC_CONTRACT_ID>') {
+                if (val === '<MASTER_ACCOUNT_ID>') return config.accountId;
+                if (val === '<DEFAULT_MPC_CONTRACT_ID>') {
                     return config.deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
                 }
                 if (val === '<REQUIRES_TEE>') {
@@ -162,7 +162,7 @@ export async function initContract() {
 }
 
 export async function approveCodehash() {
-    const config = getConfig();
+    const config = await getConfig();
     const masterAccount = config.masterAccount;
     const contractId = config.deployment.agent_contract.contract_id;
     // Approves the specified codehash based on deployment config
@@ -177,9 +177,7 @@ export async function approveCodehash() {
 
         // Resolve codehash placeholder based on environment and docker-compose
         const requiresTee = config.deployment.environment === 'TEE';
-        const composePath = config.deployment?.build_docker_image?.docker_compose_path
-            ? path.resolve(config.deployment.build_docker_image.docker_compose_path)
-            : path.resolve(process.cwd(), 'docker-compose.yaml');
+        const composePath = path.resolve(config.deployment.docker_compose_path);
 
         if (args && typeof args === 'object' && 'codehash' in args) {
             if (args.codehash === '<CODEHASH>' && requiresTee) {

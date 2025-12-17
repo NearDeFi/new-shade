@@ -1,15 +1,9 @@
-import keytar from 'keytar';
+import { Entry } from '@napi-rs/keyring';
 
 // Service name for the keychain
 const SERVICE_NAME = 'shade-agent-cli';
 
-// TODO: Add libsecret check for Linux users
-// On Linux, keytar requires libsecret to be installed:
-//   Debian/Ubuntu: sudo apt-get install libsecret-1-dev
-//   Red Hat-based: sudo yum install libsecret-devel
-//   Arch Linux: sudo pacman -S libsecret
-// We should add a check that detects if libsecret is available and provides
-// helpful error messages if it's not installed.
+// Check if its needs libsecret for linux
 
 /**
  * Get credentials for a network (testnet or mainnet)
@@ -18,16 +12,20 @@ const SERVICE_NAME = 'shade-agent-cli';
  */
 export async function getCredentials(network) {
     try {
-        const accountId = await keytar.getPassword(SERVICE_NAME, `${network}_account`);
-        const privateKey = await keytar.getPassword(SERVICE_NAME, `${network}_privateKey`);
+        const accountEntry = new Entry(SERVICE_NAME, `${network}_account`);
+        const keyEntry = new Entry(SERVICE_NAME, `${network}_privateKey`);
         
+        const accountId = accountEntry.getPassword();
+        const privateKey = keyEntry.getPassword();
+        
+        // getPassword() returns null if entry doesn't exist
         if (!accountId || !privateKey) {
             return null;
         }
         
         return { accountId, privateKey };
     } catch (error) {
-        // If keytar fails (e.g., libsecret not installed on Linux), return null
+        // If @napi-rs/keyring fails (e.g., libsecret not installed on Linux), throw error
         // The error will be caught and handled by the calling code
         throw error;
     }
@@ -42,8 +40,11 @@ export async function getCredentials(network) {
  */
 export async function setCredentials(network, accountId, privateKey) {
     try {
-        await keytar.setPassword(SERVICE_NAME, `${network}_account`, accountId);
-        await keytar.setPassword(SERVICE_NAME, `${network}_privateKey`, privateKey);
+        const accountEntry = new Entry(SERVICE_NAME, `${network}_account`);
+        const keyEntry = new Entry(SERVICE_NAME, `${network}_privateKey`);
+        
+        accountEntry.setPassword(accountId);
+        keyEntry.setPassword(privateKey);
     } catch (error) {
         throw error;
     }
@@ -56,9 +57,17 @@ export async function setCredentials(network, accountId, privateKey) {
  */
 export async function deleteCredentials(network) {
     try {
-        const accountDeleted = await keytar.deletePassword(SERVICE_NAME, `${network}_account`);
-        const keyDeleted = await keytar.deletePassword(SERVICE_NAME, `${network}_privateKey`);
-        return accountDeleted || keyDeleted;
+        const accountEntry = new Entry(SERVICE_NAME, `${network}_account`);
+        const keyEntry = new Entry(SERVICE_NAME, `${network}_privateKey`);
+        
+        // Check if credentials exist before deleting
+        const exists = await hasCredentials(network);
+        
+        // deletePassword() doesn't throw if entry doesn't exist
+        accountEntry.deletePassword();
+        keyEntry.deletePassword();
+        
+        return exists;
     } catch (error) {
         throw error;
     }
@@ -84,10 +93,12 @@ export async function hasCredentials(network) {
  */
 export async function getPhalaKey() {
     try {
-        const phalaKey = await keytar.getPassword(SERVICE_NAME, 'phala_key');
+        const phalaEntry = new Entry(SERVICE_NAME, 'phala_key');
+        const phalaKey = phalaEntry.getPassword();
         return phalaKey;
     } catch (error) {
-        throw error;
+        // Entry doesn't exist or other error
+        return null;
     }
 }
 
@@ -98,7 +109,8 @@ export async function getPhalaKey() {
  */
 export async function setPhalaKey(phalaKey) {
     try {
-        await keytar.setPassword(SERVICE_NAME, 'phala_key', phalaKey);
+        const phalaEntry = new Entry(SERVICE_NAME, 'phala_key');
+        phalaEntry.setPassword(phalaKey);
     } catch (error) {
         throw error;
     }
@@ -117,3 +129,17 @@ export async function hasPhalaKey() {
     }
 }
 
+/**
+ * Delete PHALA_KEY from keychain
+ * @returns {Promise<boolean>} - true if key was deleted, false if not found
+ */
+export async function deletePhalaKey() {
+    try {
+        const phalaEntry = new Entry(SERVICE_NAME, 'phala_key');
+        const exists = await hasPhalaKey();
+        phalaEntry.deletePassword();
+        return exists;
+    } catch (error) {
+        throw error;
+    }
+}

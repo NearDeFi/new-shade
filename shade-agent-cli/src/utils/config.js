@@ -1,14 +1,11 @@
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { parse as parseYaml } from 'yaml';
-import * as dotenv from 'dotenv';
 import { KeyPairSigner } from '@near-js/signers';
 import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
 import { platform } from 'os';
-
-// Load in environment variables from .env file
-dotenv.config();
+import { getCredentials, getPhalaKey } from './keystore.js';
 
 function detectOS() {
     const platformName = platform();
@@ -19,8 +16,7 @@ function detectOS() {
 }
 
 // Parse the deployment configuration from the deployment.yaml file
-function parseDeploymentConfig(deploymentPath) {
-    console.log('Parsing deployment configuration from deployment.yaml file');
+export function parseDeploymentConfig(deploymentPath) {
     if (!existsSync(deploymentPath)) {
         console.log(`deployment.yaml not found at ${deploymentPath}, you need to configure your deployment.yaml file`);
         process.exit(1);
@@ -33,6 +29,7 @@ function parseDeploymentConfig(deploymentPath) {
         os,
         environment,
         network,
+        docker_compose_path,
         agent_contract,
         build_docker_image,
         approve_codehash,
@@ -75,19 +72,26 @@ function parseDeploymentConfig(deploymentPath) {
             'deploy_custom.funding_amount must be a number > 0 and <= 100'
         );
 
-        if (agent_contract.deploy_custom.build_from_source) {
+        if (agent_contract.deploy_custom.deploy_from_source) {
             requireField(
-                !!agent_contract.deploy_custom.build_from_source.path_to_contract,
-                'deploy_custom.build_from_source.path_to_contract is required'
+                !!agent_contract.deploy_custom.deploy_from_source.source_path,
+                'deploy_custom.deploy_from_source.source_path is required'
             );
         }
 
-        // Must provide exactly one of build_from_source or path_to_wasm
-        const hasBuildFromSource = !!agent_contract.deploy_custom.build_from_source;
-        const hasPathToWasm = agent_contract.deploy_custom.path_to_wasm !== undefined;
+        if (agent_contract.deploy_custom.deploy_from_wasm) {
+            requireField(
+                !!agent_contract.deploy_custom.deploy_from_wasm.wasm_path,
+                'deploy_custom.deploy_from_wasm.wasm_path is required'
+            );
+        }
+
+        // Must provide exactly one of deploy_from_source or deploy_from_wasm
+        const hasDeployFromSource = !!agent_contract.deploy_custom.deploy_from_source;
+        const hasDeployFromWasm = !!agent_contract.deploy_custom.deploy_from_wasm;
         requireField(
-            hasBuildFromSource !== hasPathToWasm,
-            'deploy_custom must specify exactly one of build_from_source or path_to_wasm'
+            hasDeployFromSource !== hasDeployFromWasm,
+            'deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm'
         );
 
         if (agent_contract.deploy_custom.init) {
@@ -97,12 +101,15 @@ function parseDeploymentConfig(deploymentPath) {
         }
     }
 
+    // docker_compose_path validation - always required
+    requireField(!!docker_compose_path, 'docker_compose_path is required');
+
     // build_docker_image validations - only required when environment is TEE
     if (build_docker_image && build_docker_image.enabled !== false && environment === 'TEE') {
         requireField(!!build_docker_image.tag, 'build_docker_image.tag is required when environment is TEE');
         requireField(build_docker_image.cache !== undefined, 'build_docker_image.cache is required when environment is TEE');
         requireField(typeof build_docker_image.cache === 'boolean', 'build_docker_image.cache must be boolean when environment is TEE');
-        requireField(!!build_docker_image.docker_compose_path, 'build_docker_image.docker_compose_path is required when environment is TEE');
+        requireField(!!build_docker_image.dockerfile_path, 'build_docker_image.dockerfile_path is required when environment is TEE');
     }
 
     // approve_codehash validations
@@ -114,7 +121,6 @@ function parseDeploymentConfig(deploymentPath) {
 
     // deploy_to_phala validations
     if (deploy_to_phala && deploy_to_phala.enabled !== false) {
-        requireField(!!deploy_to_phala.docker_compose_path, 'deploy_to_phala.docker_compose_path is required');
         requireField(!!deploy_to_phala.env_file_path, 'deploy_to_phala.env_file_path is required');
         requireField(!!deploy_to_phala.app_name, 'deploy_to_phala.app_name is required');
     }
@@ -123,13 +129,14 @@ function parseDeploymentConfig(deploymentPath) {
         os: detectedOS,
         environment,
         network,
+        docker_compose_path: docker_compose_path,
         agent_contract: {
             contract_id: agent_contract?.contract_id,
             deploy_custom: agent_contract?.deploy_custom && agent_contract.deploy_custom.enabled !== false
                 ? {
                     funding_amount: agent_contract.deploy_custom.funding_amount,
-                    path_to_contract: agent_contract.deploy_custom.build_from_source?.path_to_contract,
-                    path_to_wasm: agent_contract.deploy_custom.path_to_wasm,
+                    source_path: agent_contract.deploy_custom.deploy_from_source?.source_path,
+                    wasm_path: agent_contract.deploy_custom.deploy_from_wasm?.wasm_path,
                     init: agent_contract.deploy_custom.init
                         ? {
                             method_name: agent_contract.deploy_custom.init.method_name,
@@ -144,7 +151,7 @@ function parseDeploymentConfig(deploymentPath) {
             ? {
                 tag: build_docker_image.tag,
                 cache: build_docker_image.cache,
-                docker_compose_path: build_docker_image.docker_compose_path,
+                dockerfile_path: build_docker_image.dockerfile_path,
             }
             : undefined,
         approve_codehash: approve_codehash && approve_codehash.enabled !== false
@@ -156,7 +163,6 @@ function parseDeploymentConfig(deploymentPath) {
             : undefined,
         deploy_to_phala: deploy_to_phala && deploy_to_phala.enabled !== false
             ? {
-                docker_compose_path: deploy_to_phala.docker_compose_path,
                 env_file_path: deploy_to_phala.env_file_path,
                 app_name: deploy_to_phala.app_name,
             }
@@ -182,46 +188,95 @@ function createDefaultProvider(network) {
 
 // Memoized config - only loads when getConfig() is called
 let cachedConfig = null;
+let cachedDeploymentConfig = null;
+
+/**
+ * Get the deployment configuration from deployment.yaml without requiring credentials.
+ * This is useful for plan mode or other read-only operations.
+ * @param {string} [deploymentPath] - Optional path to deployment.yaml. Defaults to ./deployment.yaml
+ * @returns {Object} The deployment configuration object
+ */
+export function getDeploymentConfig(deploymentPath) {
+    if (cachedDeploymentConfig) {
+        return cachedDeploymentConfig;
+    }
+
+    const cwdDeployment = deploymentPath || path.resolve(process.cwd(), 'deployment.yaml');
+    const deploymentConfig = parseDeploymentConfig(cwdDeployment);
+    cachedDeploymentConfig = deploymentConfig;
+    return deploymentConfig;
+}
+
+/**
+ * Get credentials optionally (returns null if they don't exist or if there's an error).
+ * @param {string} network - 'testnet' or 'mainnet'
+ * @returns {Promise<{accountId: string, privateKey: string} | null>}
+ */
+export async function getCredentialsOptional(network) {
+    try {
+        return await getCredentials(network);
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * Get PHALA key optionally (returns null if it doesn't exist or if there's an error).
+ * @returns {Promise<string | null>}
+ */
+export async function getPhalaKeyOptional() {
+    try {
+        return await getPhalaKey();
+    } catch (error) {
+        return null;
+    }
+}
 
 /**
  * Get the configuration. This function loads the config lazily and caches it.
  * The config is only loaded when deploy command is used.
- * @returns {Object} The configuration object
+ * Credentials are fetched from the keystore based on the network in deployment.yaml.
+ * @returns {Promise<Object>} The configuration object
  */
-export function getConfig() {
+export async function getConfig() {
     if (cachedConfig) {
         return cachedConfig;
     }
 
-    // Always use deployment.yaml in current working directory
-    const cwdDeployment = path.resolve(process.cwd(), 'deployment.yaml');
-    const deploymentConfig = parseDeploymentConfig(cwdDeployment);
+    // Use cached deployment config if available, otherwise parse it
+    const deploymentConfig = cachedDeploymentConfig || getDeploymentConfig();
 
-    if (!process.env.ACCOUNT_ID) {
-        console.log('Make sure you have set the ACCOUNT_ID in .env');
+    // Get network from deployment config
+    const networkId = deploymentConfig?.network;
+    if (!networkId) {
+        console.log('Network is required in deployment.yaml');
         process.exit(1);
     }
-    const accountId = process.env.ACCOUNT_ID;
 
-    if (!process.env.PRIVATE_KEY) {
-        console.log('Make sure you have set the PRIVATE_KEY in .env');
+    // Fetch credentials from keystore based on network
+    const credentials = await getCredentials(networkId);
+    if (!credentials) {
+        console.log(`No master account found for ${networkId} network.`);
+        console.log(`Please run 'shade auth set' to set master account for ${networkId}.`);
         process.exit(1);
     }
-    const privateKey = /** @type {import('@near-js/crypto').KeyPairString} */ (process.env.PRIVATE_KEY);
+    const { accountId, privateKey } = credentials;
 
-    if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.build_docker_image) { // Only require PHALA API key if in TEE and build_docker_image is configured
-        if (!process.env.PHALA_KEY) {
-            console.log('Make sure you have set the PHALA_KEY in .env');
+    // Fetch PHALA key if needed (only required for TEE environment with deploy_to_phala)
+    let phalaKey = null;
+    if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.deploy_to_phala) {
+        phalaKey = await getPhalaKey();
+        if (!phalaKey) {
+            console.log('PHALA API key is required for Phala Cloud deployments.');
+            console.log("Please run 'shade auth set' to store the PHALA API key.");
             process.exit(1);
         }
     }
-    const phalaKey = process.env.PHALA_KEY;
 
-    // Select provider based on network from deployment.yaml (default to testnet)
-    const networkId = deploymentConfig?.network;
+    // Select provider based on network from deployment.yaml
     const provider = createDefaultProvider(networkId);
 
-    const signer = KeyPairSigner.fromSecretKey(privateKey);
+    const signer = KeyPairSigner.fromSecretKey(/** @type {import('@near-js/crypto').KeyPairString} */ (privateKey));
 
     const masterAccount = new Account(accountId, provider, signer);
     const contractAccount = new Account(deploymentConfig?.agent_contract?.contract_id, provider, signer);

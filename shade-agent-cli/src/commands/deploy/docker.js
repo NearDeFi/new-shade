@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
+import path from 'path';
 import { platform } from 'os';
 import { parse, stringify } from 'yaml';
 import { getConfig } from '../../utils/config.js';
@@ -13,8 +14,8 @@ function needsSudo() {
 export async function replaceInYaml(dockerTag, codehash) {
     console.log('Replacing the codehash in the yaml file');
     try {
-        const config = getConfig();
-        const path = config.deployment.build_docker_image.docker_compose_path;
+        const config = await getConfig();
+        const path = config.deployment.docker_compose_path;
         const compose = readFileSync(path, 'utf8');
         const doc = parse(compose);
 
@@ -38,10 +39,14 @@ export async function buildImage(dockerTag) {
     // Builds the image
     console.log('Building the Docker image');
     try {
-        const config = getConfig();
+        const config = await getConfig();
         const cacheFlag = config.deployment.build_docker_image.cache === false ? '--no-cache' : '';
+        const dockerfilePath = config.deployment.build_docker_image.dockerfile_path;
+        const dockerfileFlag = `-f ${dockerfilePath}`;
         const dockerCmd = needsSudo() ? 'sudo docker' : 'docker';
-        execSync(`${dockerCmd} build ${cacheFlag} --platform=linux/amd64 -t ${dockerTag}:latest .`, { stdio: 'pipe' });
+        // Use the directory containing the Dockerfile as build context
+        const buildContext = path.dirname(path.resolve(dockerfilePath));
+        execSync(`${dockerCmd} build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`, { stdio: 'pipe' });
     } catch (e) {
         console.log('Error building the Docker image', e);
         process.exit(1);
@@ -71,7 +76,7 @@ export async function pushImage(dockerTag) {
 }
 
 export async function dockerImage() {
-    const config = getConfig();
+    const config = await getConfig();
     const dockerTag = config.deployment.build_docker_image.tag;
     // Builds the image
     await buildImage(dockerTag);

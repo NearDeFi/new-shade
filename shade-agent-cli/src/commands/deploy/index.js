@@ -10,7 +10,7 @@ export function deployCommand() {
     
     cmd.action(async () => {
         // Load config at the start of deploy
-        const config = getConfig();
+        const config = await getConfig();
         
         if (config.deployment.environment === 'TEE' && config.deployment.build_docker_image) {
             await dockerImage();
@@ -18,11 +18,11 @@ export function deployCommand() {
         if (config.deployment.agent_contract.deploy_custom) {
             await createAccount();
 
-            if (config.deployment.agent_contract.deploy_custom.path_to_contract) {
+            if (config.deployment.agent_contract.deploy_custom.source_path) {
                 await deployCustomContractFromSource();
             }
 
-            if (config.deployment.agent_contract.deploy_custom.path_to_wasm) {
+            if (config.deployment.agent_contract.deploy_custom.wasm_path) {
                 await deployCustomContractFromWasm();
             }
 

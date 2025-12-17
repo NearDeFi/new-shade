@@ -36,8 +36,8 @@ function getPhalaBin() {
 }
 const PHALA_COMMAND = getPhalaBin();
 
-function getAppNameFromDeployment() {
-    const config = getConfig();
+async function getAppNameFromDeployment() {
+    const config = await getConfig();
     const appName = config.deployment?.deploy_to_phala?.app_name;
     if (!appName || typeof appName !== 'string') {
         console.log('deploy_to_phala.app_name is required in deployment.yaml');
@@ -46,9 +46,15 @@ function getAppNameFromDeployment() {
     return appName;
 }
 
-function loginToPhala() {
-    const config = getConfig();
+async function loginToPhala() {
+    const config = await getConfig();
     const phalaKey = config.phalaKey;
+
+    if (!phalaKey) {
+        console.log('Error: PHALA API key is required but not found.');
+        console.log("Please run 'shade auth set' to store the PHALA API key.");
+        process.exit(1);
+    }
 
     // Logs in to Phala Cloud
     console.log('Logging in to Phala Cloud');
@@ -61,10 +67,10 @@ function loginToPhala() {
     }
 }
 
-function deployToPhala() {
+async function deployToPhala() {
     // Deploys the app to Phala Cloud using phala CLI
     console.log('Deploying to Phala Cloud');
-    const appName = getAppNameFromDeployment();
+    const appName = await getAppNameFromDeployment();
     
     // Validate app name length
     if (appName.length <= 3) {
@@ -73,8 +79,8 @@ function deployToPhala() {
     }
     
     try {
-        const config = getConfig();
-        const composePath = config.deployment?.deploy_to_phala?.docker_compose_path;
+        const config = await getConfig();
+        const composePath = config.deployment.docker_compose_path;
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
         const result = execSync(
@@ -105,7 +111,7 @@ function deployToPhala() {
 // They might not use port 3000, this should be dynamic
 
 export async function getAppUrl(appId) {
-    const config = getConfig();
+    const config = await getConfig();
     const phalaKey = config.phalaKey;
     console.log('Getting the app URL');
     const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
@@ -147,10 +153,10 @@ export async function getAppUrl(appId) {
 
 export async function deployPhalaWorkflow() {
     // Logs in to Phala Cloud
-    loginToPhala();
+    await loginToPhala();
 
     // Deploys the app to Phala Cloud
-    const appId = deployToPhala();
+    const appId = await deployToPhala();
 
     return appId;
 }

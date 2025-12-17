@@ -2,38 +2,42 @@
 environment: TEE
 
 # network: testnet | mainnet
-network: testnet
+network: mainnet
+
+# Path to docker-compose file
+docker_compose_path: ./docker-compose.yaml
 
 agent_contract: 
   # NEAR Account Id of the contract
   # Fill this out with a unique contract id for your agent contract
-  contract_id: owens-contractodsifj.testnet
+  contract_id: owens-contractoj.testnet
   
   # Optional, if not provided the contract will not be deployed 
   # and it will assume the agent contract is deployed to contract_id
   # and is already initialized
   deploy_custom: 
-    enabled: false
+    enabled: true
     # Amount to fund the agent contract with in NEAR
     funding_amount: 7
 
     # Choose ONE of the following (mutually exclusive):
-    # Option 1: Build from contract source
-    build_from_source: 
-      path_to_contract: ./shade-contract-template
+    # Option 1: Build contract from source and deploy
+    deploy_from_source: 
+      source_path: ./shade-contract-template
     # Option 2: Use pre-built WASM file
-    # path_to_wasm: ./shade-contract-template/target/near/shade_contract_template.wasm
+    # deploy_from_wasm:
+    #   wasm_path: ./shade-contract-template/target/near/shade_contract_template.wasm
 
     # Optional, if not provided the contract will not be initialized
     init: 
       method_name: new
-      # The OWNER_ACCOUNT_ID will automatically be replaced with the the account ID set up in the auth of the CLI
-      # The MPC_CONTRACT_ID will automatically be selected based on the network
+      # The MASTER_ACCOUNT_ID will automatically be replaced with the master account set up in the auth of the CLI
+      # The DEFAULT_MPC_CONTRACT_ID will automatically be selected based on the network
       # The REQUIRES_TEE will automatically be selected based on the environment
       args: |
         {
-          "owner_id": "<OWNER_ACCOUNT_ID>",
-          "mpc_contract_id": "<MPC_CONTRACT_ID>",
+          "owner_id": "<MASTER_ACCOUNT_ID>",
+          "mpc_contract_id": "<DEFAULT_MPC_CONTRACT_ID>",
           "requires_tee": "<REQUIRES_TEE>"
         }
       # tgas: 10
@@ -41,14 +45,14 @@ agent_contract:
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only ran if environment is TEE
 build_docker_image:
-  enabled: false
+  enabled: true
   # Fill this out
   tag: pivortex/shade-agent-test
   cache: true
-  docker_compose_path: ./docker-compose.yaml
+  dockerfile_path: ./Dockerfile
 
 approve_codehash:
-  enabled: false
+  enabled: true
   method_name: approve_codehash
   # The CODEHASH will automatically be replaced with the codehash of the docker image once it's pushed to the registry
   args: |
@@ -61,20 +65,4 @@ approve_codehash:
 deploy_to_phala:
   enabled: true
   app_name: my-first-shade-agent
-  docker_compose_path: ./docker-compose.yaml
   env_file_path: ./.env
-
-
-# TODO: Add auto whitelisting
-# # Optional, if not provided the agent will not be automatically whitelisted
-# auto_whitelist:
-#   method_name: whitelist_agent
-#   # The AGENT_ACCOUNT_ID will automatically be replaced with the account ID of the agent once the agent is deployed
-#   args: |
-#     {
-#       "account_id": "<AGENT_ACCOUNT_ID>"
-#     }
-#   # tgas: 10
-
-
-# Plan mode shows what will happen if you ran the CLI 

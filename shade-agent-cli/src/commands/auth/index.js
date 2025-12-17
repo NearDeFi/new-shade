@@ -1,10 +1,9 @@
 import { Command } from 'commander';
 import select from '@inquirer/select';
 import input from '@inquirer/input';
-import confirm from '@inquirer/confirm';
 import { KeyPair } from '@near-js/crypto';
 import { generate as randomWords } from 'random-words';
-import { getCredentials, setCredentials, hasCredentials, getPhalaKey, setPhalaKey, hasPhalaKey } from '../../utils/keystore.js';
+import { getCredentials, setCredentials, getPhalaKey, setPhalaKey, deleteCredentials, deletePhalaKey } from '../../utils/keystore.js';
 import chalk from 'chalk';
 
 // Generate a random account ID using two random words
@@ -218,15 +217,15 @@ async function promptAndStoreCredentials(network) {
     }
     
     await setCredentials(network, accountId.trim(), privateKey.trim());
-    console.log(chalk.green(`✓ Credentials stored for ${network}`));
-    console.log(chalk.green(`\nStored credentials for ${network}:`));
+    console.log(chalk.green(`✓ Master account stored for ${network}`));
+    console.log(chalk.green(`\nStored master account for ${network}:`));
     console.log(chalk.cyan(`  Account ID: ${accountId.trim()}`));
     console.log(chalk.cyan(`  Private Key: ${privateKey.trim()}`));
 }
 
 export function authCommand() {
     const cmd = new Command('auth');
-    cmd.description('Set up authentication credentials');
+    cmd.description('Set up master account and authentication');
     
     // Define the set action function
     const setAction = async () => {
@@ -236,7 +235,7 @@ export function authCommand() {
                 message: 'What would you like to set?',
                 choices: [
                     { name: 'All (NEAR + PHALA)', value: 'both' },
-                    { name: 'Just NEAR (network credentials)', value: 'network' },
+                    { name: 'Just NEAR (master account)', value: 'network' },
                     { name: 'Just PHALA (API key)', value: 'phala' },
                 ],
             });
@@ -297,7 +296,7 @@ export function authCommand() {
                 message: 'What would you like to view?',
                 choices: [
                     { name: 'All (NEAR + PHALA)', value: 'both' },
-                    { name: 'Just NEAR (network credentials)', value: 'network' },
+                    { name: 'Just NEAR (master account)', value: 'network' },
                     { name: 'Just PHALA (API key)', value: 'phala' },
                 ],
             });
@@ -314,10 +313,10 @@ export function authCommand() {
                 const credentials = await getCredentials(network);
                 
                 if (!credentials) {
-                    console.log(chalk.yellow(`No credentials found for ${network}`));
-                    console.log(chalk.yellow(`Use 'shade auth set' to store credentials`));
+                    console.log(chalk.yellow(`No master account found for ${network}`));
+                    console.log(chalk.yellow(`Use 'shade auth set' to set master account`));
                 } else {
-                    console.log(chalk.green(`\nCredentials for ${network}:`));
+                    console.log(chalk.green(`\nMaster account for ${network}:`));
                     console.log(chalk.cyan(`Account ID: ${credentials.accountId}`));
                     console.log(chalk.cyan(`Private Key: ${credentials.privateKey}`));
                 }
@@ -351,18 +350,99 @@ export function authCommand() {
         }
     };
     
+    // Define the clear action function
+    const clearAction = async () => {
+        try {
+            // Ask what to clear
+            const whatToClear = await select({
+                message: 'What would you like to clear?',
+                choices: [
+                    { name: 'All (NEAR + PHALA)', value: 'both' },
+                    { name: 'Just NEAR (master account)', value: 'network' },
+                    { name: 'Just PHALA (API key)', value: 'phala' },
+                ],
+            });
+
+            if (whatToClear === 'network' || whatToClear === 'both') {
+                const network = await select({
+                    message: 'Select network:',
+                    choices: [
+                        { name: 'Both (Testnet + Mainnet)', value: 'both' },
+                        { name: 'Testnet', value: 'testnet' },
+                        { name: 'Mainnet', value: 'mainnet' },
+                    ],
+                });
+
+                if (network === 'both') {
+                    // Clear both testnet and mainnet
+                    const testnetDeleted = await deleteCredentials('testnet');
+                    const mainnetDeleted = await deleteCredentials('mainnet');
+                    
+                    if (testnetDeleted) {
+                        console.log(chalk.green('✓ Master account cleared for testnet'));
+                    } else {
+                        console.log(chalk.yellow('No master account found for testnet to clear'));
+                    }
+                    
+                    if (mainnetDeleted) {
+                        console.log(chalk.green('✓ Master account cleared for mainnet'));
+                    } else {
+                        console.log(chalk.yellow('No master account found for mainnet to clear'));
+                    }
+                } else {
+                    const deleted = await deleteCredentials(network);
+                    if (deleted) {
+                        console.log(chalk.green(`✓ Master account cleared for ${network}`));
+                    } else {
+                        console.log(chalk.yellow(`No master account found for ${network} to clear`));
+                    }
+                }
+            }
+
+            if (whatToClear === 'phala' || whatToClear === 'both') {
+                const deleted = await deletePhalaKey();
+                if (deleted) {
+                    console.log(chalk.green('✓ PHALA API key cleared'));
+                } else {
+                    console.log(chalk.yellow('No PHALA API key found to clear'));
+                }
+            }
+        } catch (error) {
+            // Handle SIGINT gracefully - exit silently
+            if (error.name === 'ExitPromptError' || error.message?.includes('SIGINT')) {
+                process.exit(0);
+            }
+            if (error.message && error.message.includes('libsecret')) {
+                console.error(chalk.red('Error: libsecret is required on Linux.'));
+                console.error(chalk.yellow('Please install it:'));
+                console.error(chalk.yellow('  Debian/Ubuntu: sudo apt-get install libsecret-1-dev'));
+                console.error(chalk.yellow('  Red Hat-based: sudo yum install libsecret-devel'));
+                console.error(chalk.yellow('  Arch Linux: sudo pacman -S libsecret'));
+            } else {
+                console.error(chalk.red(`Error: ${error.message}`));
+            }
+            process.exit(1);
+        }
+    };
+    
     // auth set command
     const setCmd = new Command('set');
-    setCmd.description('Store credentials for a network');
+    setCmd.description('Set master account for a network');
     setCmd.action(setAction);
     
     // auth get command
     const getCmd = new Command('get');
-    getCmd.description('Retrieve credentials for a network');
+    getCmd.description('Get master account for a network');
     getCmd.action(getAction);
+    
+    // auth clear command
+    const clearCmd = new Command('clear');
+    clearCmd.description('Clear master account or PHALA API key');
+    clearCmd.action(clearAction);
     
     cmd.addCommand(setCmd);
     cmd.addCommand(getCmd);
+    cmd.addCommand(clearCmd);
     
     // Default action: show selector if no subcommand provided
     cmd.action(async () => {
@@ -370,8 +450,9 @@ export function authCommand() {
             const subcommand = await select({
                 message: 'What would you like to do?',
                 choices: [
-                    { name: 'Set - Store credentials for a network', value: 'set' },
-                    { name: 'Get - Retrieve stored credentials', value: 'get' },
+                    { name: 'Set - Set master account for a network', value: 'set' },
+                    { name: 'Get - Get stored master account', value: 'get' },
+                    { name: 'Clear - Clear master account or PHALA API key', value: 'clear' },
                 ],
             });
             
@@ -380,6 +461,8 @@ export function authCommand() {
                 await getAction();
             } else if (subcommand === 'set') {
                 await setAction();
+            } else if (subcommand === 'clear') {
+                await clearAction();
             }
         } catch (error) {
             // Handle SIGINT gracefully - exit silently
