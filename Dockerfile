@@ -6,7 +6,12 @@ COPY agent-template/package.json agent-template/package-lock.json ./
 # Create the parent directory structure and copy the package
 RUN mkdir -p /shade-agent-js
 COPY shade-agent-js/dist /shade-agent-js/dist
-COPY shade-agent-js/package.json /shade-agent-js/
+COPY shade-agent-js/package.json shade-agent-js/package-lock.json /shade-agent-js/
+# Install shade-agent-js dependencies
+WORKDIR /shade-agent-js
+RUN npm ci --only=production
+# Install agent-template dependencies
+WORKDIR /app
 RUN npm ci --only=production
 
 # Stage 2: Build
@@ -17,7 +22,12 @@ COPY agent-template/package.json agent-template/package-lock.json agent-template
 # Create the parent directory structure and copy the package
 RUN mkdir -p /shade-agent-js
 COPY shade-agent-js/dist /shade-agent-js/dist
-COPY shade-agent-js/package.json /shade-agent-js/
+COPY shade-agent-js/package.json shade-agent-js/package-lock.json /shade-agent-js/
+# Install shade-agent-js dependencies
+WORKDIR /shade-agent-js
+RUN npm ci --only=production
+# Install agent-template dependencies
+WORKDIR /app
 RUN npm ci --include=dev
 COPY agent-template/src/ ./src/
 RUN npm run build
@@ -28,5 +38,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
+# Copy shade-agent-js package and its node_modules so the file:../shade-agent-js dependency can be resolved
+RUN mkdir -p /shade-agent-js
+COPY --from=deps /shade-agent-js/dist /shade-agent-js/dist
+COPY --from=deps /shade-agent-js/package.json /shade-agent-js/
+COPY --from=deps /shade-agent-js/node_modules /shade-agent-js/node_modules
 CMD ["npm", "start"]
 

@@ -74,27 +74,28 @@ fn verify_codehash(raw_tcb_info: String, rtmr3: String) -> String {
     // event with compose hash matches report rtmr3
     require!(replayed_rtmr3 == rtmr3);
 
-    // extract the codehash of the shade-agent-app-image
+    // extract the codehash of the image
     let mut app_compose_string = String::from(app_compose);
     app_compose_string.retain(|c| !c.is_whitespace());
 
     // ensure there is exactly one image declaration in the entire app_compose_string
-    let image_declaration_count = app_compose_string.matches("\\nimage:").count();
+    let image_declaration_count = app_compose_string.matches("image:").count();
     require!(
         image_declaration_count == 1,
         "app_compose should contain exactly one image declaration"
     );
 
-    // will panic if any of the split_once do not occur e.g. malformed yaml and/or missing tag "#shade-agent-app-image"
+    // Find the image line and extract the SHA256 codehash
+    // After whitespace removal, pattern is: image:...@sha256:64charhash...
     let (_, right) = app_compose_string
-        .split_once("#shade-agent-app-image")
-        .unwrap();
-    let (_, right) = right.split_once("\\nimage:").unwrap();
-    let (left, _) = right.split_once("\\n").unwrap();
-    let (_, right) = left.split_once("@sha256:").unwrap();
-    let (shade_agent_app_image, _) = right.split_at(64);
+        .split_once("image:")
+        .expect("image: declaration not found");
+    let (_, right) = right
+        .split_once("@sha256:")
+        .expect("image does not contain @sha256: codehash");
+    let (codehash, _) = right.split_at(64);
 
-    shade_agent_app_image.to_owned()
+    codehash.to_owned()
 }
 
 fn replay_rtmr(event_log: Vec<Value>, imr: u8) -> String {

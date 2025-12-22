@@ -190,6 +190,7 @@ export class ShadeClient {
             args: {
                 attestation,
             },
+            gas: BigInt("250000000000000"), // 250 TGas (under 300 TGas limit)
         });
     }
 
