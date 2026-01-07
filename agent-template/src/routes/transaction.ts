@@ -76,7 +76,7 @@ async function getPricePayload(ethPrice: number, contractId: string) {
   const contract = new Contract(ethContractAddress, ethContractAbi, provider);
   // Encode the function data for the updatePrice function
   const data = contract.interface.encodeFunctionData("updatePrice", [ethPrice]);
-  // Prepare the transaction for signing 
+  // Prepare the transaction for signing
   const { transaction, hashesToSign } = await Evm.prepareTransactionForSigning({
     from: senderAddress,
     to: ethContractAddress,

@@ -1,158 +1,189 @@
-import { createHash } from 'node:crypto';
-import { TappdClient } from './tappd';
-import { generateSeedPhrase } from 'near-seed-phrase';
-import { PublicKey, KeyPairString } from '@near-js/crypto';
-import { KeyPairSigner } from '@near-js/signers';
-import { addKeysToAccount, removeKeysFromAccount } from './near';
-import { Account } from '@near-js/accounts';
+import { createHash } from "node:crypto";
+import { TappdClient } from "./tappd";
+import { generateSeedPhrase } from "near-seed-phrase";
+import { PublicKey, KeyPairString } from "@near-js/crypto";
+import { KeyPairSigner } from "@near-js/signers";
+import { addKeysToAccount, removeKeysFromAccount } from "./near";
+import { Account } from "@near-js/accounts";
 
-export async function generateAgent(tappdClient: TappdClient | undefined, derivationPath: string | undefined): Promise<{ accountId: string, agentPrivateKey: string, derivedWithTEE: boolean }> {
-    const { hash, usedTEE } = await deriveHash(tappdClient, derivationPath);
-    const seedInfo = generateSeedPhrase(hash);
+// Generates an agent account ID and private key
+export async function generateAgent(
+  tappdClient: TappdClient | undefined,
+  derivationPath: string | undefined,
+): Promise<{
+  accountId: string;
+  agentPrivateKey: string;
+  derivedWithTEE: boolean;
+}> {
+  const { hash, usedTEE } = await deriveHash(tappdClient, derivationPath);
+  const seedInfo = generateSeedPhrase(hash);
 
-    const accountId = Buffer.from(PublicKey.from(seedInfo.publicKey).data).toString('hex').toLowerCase();
+  const accountId = Buffer.from(PublicKey.from(seedInfo.publicKey).data)
+    .toString("hex")
+    .toLowerCase();
 
-    return {
-        accountId,
-        agentPrivateKey: seedInfo.secretKey,
-        derivedWithTEE: usedTEE,
-    };
+  return {
+    accountId,
+    agentPrivateKey: seedInfo.secretKey,
+    derivedWithTEE: usedTEE,
+  };
 }
 
+// Derives a hash from a derivation path (for deterministic key generation)
 function deriveHashFromPath(derivationPath: string): Buffer {
-    return createHash('sha256').update(Buffer.from(derivationPath)).digest();
+  return createHash("sha256").update(Buffer.from(derivationPath)).digest();
 }
 
+// Derives a hash from random data (for non-TEE, non-deterministic generation)
 function deriveHashFromRandom(): Buffer {
-    const randomArray = new Uint8Array(32);
-    crypto.getRandomValues(randomArray);
-    const randomString = Buffer.from(randomArray).toString('hex');
-    return createHash('sha256').update(Buffer.from(randomString)).digest();
+  const randomArray = new Uint8Array(32);
+  crypto.getRandomValues(randomArray);
+  const randomString = Buffer.from(randomArray).toString("hex");
+  return createHash("sha256").update(Buffer.from(randomString)).digest();
 }
 
+// Derives a hash using TEE hardware entropy
 async function deriveHashForTEE(tappdClient: TappdClient): Promise<Buffer> {
-    // JS crypto random
-    const randomArray = new Uint8Array(32);
-    crypto.getRandomValues(randomArray);
-    const randomString = Buffer.from(randomArray).toString('hex');
+  // JS crypto random
+  const randomArray = new Uint8Array(32);
+  crypto.getRandomValues(randomArray);
+  const randomString = Buffer.from(randomArray).toString("hex");
 
-    // Entropy from TEE hardware
-    const keyFromTee = await tappdClient.deriveKey(
-        randomString,
-        randomString,
-    );
+  // Entropy from TEE hardware
+  const keyFromTee = await tappdClient.deriveKey(randomString, randomString);
 
-    // Hash of JS crypto random and TEE entropy
-    return Buffer.from(
-        await crypto.subtle.digest(
-            'SHA-256',
-            Buffer.concat([randomArray, keyFromTee.asUint8Array(32)]),
-        ),
-    );
+  // Hash of JS crypto random and TEE entropy
+  return Buffer.from(
+    await crypto.subtle.digest(
+      "SHA-256",
+      Buffer.concat([randomArray, keyFromTee.asUint8Array(32)]),
+    ),
+  );
 }
 
-async function deriveHash(tappdClient: TappdClient | undefined, derivationPath: string | undefined): Promise<{ hash: Buffer, usedTEE: boolean }> {
-    let hash: Buffer;
-    let usedTEE: boolean;
-    
-    if (!tappdClient && derivationPath) {
-        // If not in a TEE and a derivation path is provided, use it to generate the hash
-        // if different users use the same derivation path, they will get the same account ID 
-        // so they should generate it to be unique
-        hash = deriveHashFromPath(derivationPath);
-        usedTEE = false;
-    } else if (!tappdClient && !derivationPath) {
-        // If it is not in a TEE and no derivation path is provided, generate a random hash
-        hash = deriveHashFromRandom();
-        usedTEE = false;
-    } else {
-        // If it is in a TEE generate a hash from the entropy from the TEE hardware and a random string
-        hash = await deriveHashForTEE(tappdClient);
-        usedTEE = true;
-    }
-    
-    return { hash, usedTEE };
+// Derives a hash based on the environment (TEE, derivation path, or random)
+async function deriveHash(
+  tappdClient: TappdClient | undefined,
+  derivationPath: string | undefined,
+): Promise<{ hash: Buffer; usedTEE: boolean }> {
+  let hash: Buffer;
+  let usedTEE: boolean;
+
+  if (!tappdClient && derivationPath) {
+    // If not in a TEE and a derivation path is provided, use it to generate the hash
+    // if different users use the same derivation path, they will get the same account ID
+    // so they should generate it to be unique
+    hash = deriveHashFromPath(derivationPath);
+    usedTEE = false;
+  } else if (!tappdClient && !derivationPath) {
+    // If it is not in a TEE and no derivation path is provided, generate a random hash
+    hash = deriveHashFromRandom();
+    usedTEE = false;
+  } else {
+    // If it is in a TEE generate a hash from the entropy from the TEE hardware and a random string
+    hash = await deriveHashForTEE(tappdClient);
+    usedTEE = true;
+  }
+
+  return { hash, usedTEE };
 }
 
+// Manages the setup of additional keys for the agent account
+// Derives keys, adds missing ones, and removes excess keys as needed
 export async function manageKeySetup(
-    agentAccount: Account,
-    numAdditionalKeys: number,  // Number of additional keys to derive (not total)
-    tappdClient: TappdClient | undefined,
-    derivationPath: string | undefined
-): Promise<{ keysToSave: string[], allDerivedWithTEE: boolean }> {
+  agentAccount: Account,
+  numAdditionalKeys: number, // Number of additional keys to derive (not total)
+  tappdClient: TappdClient | undefined,
+  derivationPath: string | undefined,
+): Promise<{ keysToSave: string[]; allDerivedWithTEE: boolean }> {
+  // Get the number of keys on the account already
+  const keysOnAccount = await agentAccount.getAccessKeyList();
+  const numKeysOnAccount = keysOnAccount.keys.length;
+  const numExistingAdditionalKeys = numKeysOnAccount - 1; // Subtract the first key
 
-    // Get the number of keys on the account already
-    const keysOnAccount = await agentAccount.getAccessKeyList();
-    const numKeysOnAccount = keysOnAccount.keys.length;
-    const numExistingAdditionalKeys = numKeysOnAccount - 1; // Subtract the first key
+  // Derive keys using the higher number (needed for both adding and removing cases)
+  const numKeysToDerive = Math.max(
+    numAdditionalKeys,
+    numExistingAdditionalKeys,
+  );
+  const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(
+    numKeysToDerive,
+    tappdClient,
+    derivationPath,
+  );
 
-    // Derive keys using the higher number (needed for both adding and removing cases)
-    const numKeysToDerive = Math.max(numAdditionalKeys, numExistingAdditionalKeys);
-    const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(numKeysToDerive, tappdClient, derivationPath);
+  if (numExistingAdditionalKeys < numAdditionalKeys) {
+    // Need to add keys
+    const keysToAdd = keys.slice(numExistingAdditionalKeys, numAdditionalKeys);
+    await addKeysToAccount(agentAccount, keysToAdd);
+  } else if (numExistingAdditionalKeys > numAdditionalKeys) {
+    // Need to remove excess keys
+    const excessKeys = keys.slice(numAdditionalKeys);
+    await removeKeysFromAccount(agentAccount, excessKeys);
+  }
 
-    if (numExistingAdditionalKeys < numAdditionalKeys) {
-        // Need to add keys
-        const keysToAdd = keys.slice(numExistingAdditionalKeys, numAdditionalKeys);
-        await addKeysToAccount(agentAccount, keysToAdd);
-    } else if (numExistingAdditionalKeys > numAdditionalKeys) {
-        // Need to remove excess keys
-        const excessKeys = keys.slice(numAdditionalKeys);
-        await removeKeysFromAccount(agentAccount, excessKeys);
-    }
+  // Return only the desired number of keys
+  const keysToSave = keys.slice(0, numAdditionalKeys);
 
-    // Return only the desired number of keys
-    const keysToSave = keys.slice(0, numAdditionalKeys);
-
-    return {
-        keysToSave: keysToSave,
-        allDerivedWithTEE,
-    };
+  return {
+    keysToSave: keysToSave,
+    allDerivedWithTEE,
+  };
 }
 
+// Derives additional keys for the agent account
 async function deriveAdditionalKeys(
-    numKeys: number,
-    tappdClient: TappdClient | undefined,
-    derivationPath: string | undefined
-): Promise<{ keys: string[], allDerivedWithTEE: boolean }> {
-    // Generate numKeys additional keys
-    // Run all derivations in parallel for better performance for TEE
-    const keyPromises = Array.from({ length: numKeys }, async (_, index) => {
-        const i = index + 1; // Start from 1
-        // For additional keys with derivation path, append key index
-        const keyDerivationPath = derivationPath ? `${derivationPath}-${i}` : undefined;
-        const { hash, usedTEE } = await deriveHash(tappdClient, keyDerivationPath);
-        const seedInfo = generateSeedPhrase(hash);
-        // Return both the key and whether it was derived with TEE
-        return {
-            key: seedInfo.secretKey,
-            derivedWithTEE: usedTEE,
-        };
-    });
-    
-    const results = await Promise.all(keyPromises);
-    const keys = results.map(r => r.key);
-    // Check if all keys were derived with TEE
-    const allDerivedWithTEE = results.every(r => r.derivedWithTEE);
-    
-    return { keys, allDerivedWithTEE };
+  numKeys: number,
+  tappdClient: TappdClient | undefined,
+  derivationPath: string | undefined,
+): Promise<{ keys: string[]; allDerivedWithTEE: boolean }> {
+  // Generate numKeys additional keys
+  // Run all derivations in parallel for better performance for TEE
+  const keyPromises = Array.from({ length: numKeys }, async (_, index) => {
+    const i = index + 1; // Start from 1
+    // For additional keys with derivation path, append key index
+    const keyDerivationPath = derivationPath
+      ? `${derivationPath}-${i}`
+      : undefined;
+    const { hash, usedTEE } = await deriveHash(tappdClient, keyDerivationPath);
+    const seedInfo = generateSeedPhrase(hash);
+    // Return both the key and whether it was derived with TEE
+    return {
+      key: seedInfo.secretKey,
+      derivedWithTEE: usedTEE,
+    };
+  });
+
+  const results = await Promise.all(keyPromises);
+  const keys = results.map((r) => r.key);
+  // Check if all keys were derived with TEE
+  const allDerivedWithTEE = results.every((r) => r.derivedWithTEE);
+
+  return { keys, allDerivedWithTEE };
 }
 
-export function getAgentSigner(agentPrivateKeys: string[], currentKeyIndex: number): { signer: KeyPairSigner, keyIndex: number } {
-    if (agentPrivateKeys.length === 0) {
-        throw new Error('No agent keys available');
-    }
-    if (agentPrivateKeys.length === 1) {
-        return {
-            signer: KeyPairSigner.fromSecretKey(agentPrivateKeys[0] as KeyPairString),
-            keyIndex: 0,
-        };
-    }
-    currentKeyIndex++;
-    if (currentKeyIndex > agentPrivateKeys.length - 1) {
-        currentKeyIndex = 0;
-    }
+// Gets the next signer from the agent's private keys (rotates through keys)
+export function getAgentSigner(
+  agentPrivateKeys: string[],
+  currentKeyIndex: number,
+): { signer: KeyPairSigner; keyIndex: number } {
+  if (agentPrivateKeys.length === 0) {
+    throw new Error("No agent keys available");
+  }
+  if (agentPrivateKeys.length === 1) {
     return {
-        signer: KeyPairSigner.fromSecretKey(agentPrivateKeys[currentKeyIndex] as KeyPairString),
-        keyIndex: currentKeyIndex,
+      signer: KeyPairSigner.fromSecretKey(agentPrivateKeys[0] as KeyPairString),
+      keyIndex: 0,
     };
+  }
+  currentKeyIndex++;
+  if (currentKeyIndex > agentPrivateKeys.length - 1) {
+    currentKeyIndex = 0;
+  }
+  return {
+    signer: KeyPairSigner.fromSecretKey(
+      agentPrivateKeys[currentKeyIndex] as KeyPairString,
+    ),
+    keyIndex: currentKeyIndex,
+  };
 }

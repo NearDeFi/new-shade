@@ -17,14 +17,17 @@ const sponsorAccountId = process.env.SPONSOR_ACCOUNT_ID;
 const sponsorPrivateKey = process.env.SPONSOR_PRIVATE_KEY;
 
 if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
-  throw new Error("Missing required environment variables AGENT_CONTRACT_ID, SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY");
+  throw new Error(
+    "Missing required environment variables AGENT_CONTRACT_ID, SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY",
+  );
 }
 
 // Initialize agent
 export const agent = await ShadeClient.create({
-  networkId: "testnet", 
+  networkId: "testnet",
   agentContractId: agentContractId, // Agent contract the agent will interact with
-  sponsor: { // Sponsor account that will fund the agent
+  sponsor: {
+    // Sponsor account that will fund the agent
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },
@@ -52,7 +55,7 @@ while (true) {
   const status = await agent.isRegistered();
   if (status.whitelisted) {
     // If the agent has low balance, fund it
-    if (await agent.balance() < 0.2) {
+    if ((await agent.balance()) < 0.2) {
       await agent.fundAgent(0.3);
     }
     // Register the agent
@@ -62,7 +65,7 @@ while (true) {
       break;
     }
   }
-  await new Promise(resolve => setTimeout(resolve, 10000));
+  await new Promise((resolve) => setTimeout(resolve, 10000));
 }
 
 // Start server after registration is complete

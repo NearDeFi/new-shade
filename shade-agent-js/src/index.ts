@@ -1,10 +1,5 @@
-export type {
-    ShadeConfig,
-    AgentStatus,
-} from './api';
+export type { ShadeConfig, AgentStatus } from "./api";
 
-export {
-    ShadeClient,
-} from './api';
+export { ShadeClient } from "./api";
 
-export type { Attestation } from './utils/tee';
+export type { Attestation } from "./utils/tee";

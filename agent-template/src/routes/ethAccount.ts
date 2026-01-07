@@ -13,7 +13,7 @@ app.get("/", async (c) => {
 
     // Get the balance of the EVM address
     const balance = await Evm.getBalance(senderAddress);
-    
+
     return c.json({ senderAddress, balance: Number(balance.balance) });
   } catch (error) {
     console.log("Error getting the derived EVM address:", error);
