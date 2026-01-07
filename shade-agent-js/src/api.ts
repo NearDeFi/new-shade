@@ -11,13 +11,13 @@ import { NEAR } from "@near-js/tokens";
 
 
 export interface AgentStatus {
-    verified: boolean;
+    registered: boolean;
     whitelisted: boolean;
 }
 
 interface GetAgentResponse {
     account_id: string;
-    verified: boolean;
+    registered: boolean;
     whitelisted: boolean;
     codehash?: string | null;
 }
@@ -129,13 +129,13 @@ export class ShadeClient {
         
         if (res === null) {
             return {
-                verified: false,
+                registered: false,
                 whitelisted: false,
             };
         }
         
         return {
-            verified: res.verified,
+            registered: res.registered,
             whitelisted: res.whitelisted,
         };
     }

@@ -22,13 +22,13 @@ if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
 
 // Initialize agent
 export const agent = await ShadeClient.create({
-  networkId: "testnet",
-  agentContractId: agentContractId,
-  sponsor: {
+  networkId: "testnet", 
+  agentContractId: agentContractId, // Agent contract the agent will interact with
+  sponsor: { // Sponsor account that will fund the agent
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },
-  derivationPath: sponsorPrivateKey,
+  derivationPath: sponsorPrivateKey, // Random string (private key does a good job)
 });
 
 // Initialize app
@@ -48,11 +48,14 @@ console.log("Waiting for agent to be whitelisted...");
 
 // Wait until the agent is whitelisted to register
 while (true) {
+  // Check if the agent is whitelisted
   const status = await agent.isRegistered();
   if (status.whitelisted) {
+    // If the agent has low balance, fund it
     if (await agent.balance() < 0.2) {
       await agent.fundAgent(0.3);
     }
+    // Register the agent
     const registered = await agent.register();
     console.log("registered");
     if (registered) {

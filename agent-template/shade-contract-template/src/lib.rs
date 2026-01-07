@@ -2,14 +2,15 @@ use dcap_qvl::{verify, QuoteCollateralV3};
 use hex::{decode, encode};
 use near_sdk::{
     env::{self, block_timestamp},
-    near, require, log,
+    log, near, require,
     store::{IterableMap, IterableSet},
-    AccountId, Gas, NearToken, PanicOnDefault, Promise, BorshStorageKey,
+    AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
 };
 
 mod chainsig;
 mod collateral;
 mod helpers;
+mod upgrade;
 mod views;
 
 pub type Codehash = String;
@@ -36,7 +37,7 @@ pub struct Attestation {
 #[derive(Clone)]
 pub struct Agent {
     account_id: AccountId,
-    verified: bool,
+    registered: bool,
     whitelisted: bool,
     codehash: Option<Codehash>,
 }
@@ -64,9 +65,8 @@ impl Contract {
 
     // Register an agent, this needs to be called by the agent itself
     pub fn register_agent(&mut self, attestation: Attestation) -> bool {
-        // Check that the agent is whitelisted 
-        self
-            .agents
+        // Check that the agent is whitelisted
+        self.agents
             .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
 
@@ -91,14 +91,15 @@ impl Contract {
         true
     }
 
-    // Request a signature from the contract
+    // Request a signature for a transaction payload
     pub fn request_signature(
         &mut self,
         path: String,
         payload: String,
         key_type: String,
     ) -> Promise {
-        self.require_verified_agent();
+        // Require the caller to be a registered agent
+        self.require_registered_agent();
 
         self.internal_request_signature(path, payload, key_type)
     }
@@ -118,10 +119,12 @@ impl Contract {
     }
 
     // Whitelist an agent, it will still need to register
-    // Note: This will override any existing entry, including registered agents (will unregister them)
     pub fn whitelist_agent(&mut self, account_id: AccountId) {
         self.require_owner();
-        self.agents.insert(account_id, None);
+        // Only insert if not already whitelisted
+        if !self.agents.contains_key(&account_id) {
+            self.agents.insert(account_id, None);
+        }
     }
 
     // Remove an agent from the list of agents

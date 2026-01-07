@@ -21,19 +21,19 @@ app.get("/", async (c) => {
       return c.json({ error: "Contract ID not configured" }, 500);
     }
 
-    // Get the ETH price
+    // Get the price of ETH
     const ethPrice = await getEthereumPriceUSD();
     if (!ethPrice) {
       return c.json({ error: "Failed to fetch ETH price" }, 500);
     }
 
-    // Get the transaction and payload to sign
+    // Create the transaction and payload to sign
     const { transaction, hashesToSign } = await getPricePayload(
       ethPrice,
       contractId,
     );
 
-    // Call the agent contract to get a signature for the payload
+    // Call the request_signature function on the agent contract to get a signature for the payload
     const signRes = await agent.call({
       methodName: "request_signature",
       args: {
@@ -50,10 +50,10 @@ app.get("/", async (c) => {
       rsvSignatures: [toRSV(signRes as MPCSignature)],
     });
 
-    // Broadcast the signed transaction
+    // Broadcast the signed transaction to the EVM
     const txHash = await Evm.broadcastTx(signedTransaction);
 
-    // Send back both the txHash and the new price optimistically
+    // Return the txHash and the new price optimistically
     return c.json({
       txHash: txHash.hash,
       newPrice: (ethPrice / 100).toFixed(2),
@@ -65,14 +65,14 @@ app.get("/", async (c) => {
 });
 
 async function getPricePayload(ethPrice: number, contractId: string) {
-  // Derive the price pusher Ethereum address
+  // Derive the price pusher EVM address
   const { address: senderAddress } = await Evm.deriveAddressAndPublicKey(
     contractId,
     "ethereum-1",
   );
-  // Create a new JSON-RPC provider for the Ethereum network
+  // Create a new JSON-RPC provider for the EVM network
   const provider = new JsonRpcProvider(ethRpcUrl);
-  // Create a new contract interface for the Ethereum Oracle contract
+  // Create a new contract interface for the EVM Oracle contract
   const contract = new Contract(ethContractAddress, ethContractAbi, provider);
   // Encode the function data for the updatePrice function
   const data = contract.interface.encodeFunctionData("updatePrice", [ethPrice]);

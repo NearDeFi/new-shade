@@ -32,17 +32,20 @@ impl Contract {
         payload: String,
         key_type: String,
     ) -> Promise {
+        // Convert the payload to the correct type
         let (payload_v2, domain_id) = match key_type.as_str() {
             "Eddsa" => (Payload::Eddsa(payload), 1),
             _ => (Payload::Ecdsa(payload), 0),
         };
 
+        // Create the request
         let request = SignRequest {
             payload_v2,
             path,
             domain_id,
         };
 
+        // Call the sign function on the MPC contract
         mpc_contract::ext(self.mpc_contract_id.clone())
             .with_static_gas(GAS)
             .with_attached_deposit(ATTACHED_DEPOSIT)
