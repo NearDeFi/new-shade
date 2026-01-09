@@ -10,7 +10,7 @@ use near_sdk::{
 mod chainsig;
 mod collateral;
 mod helpers;
-mod upgrade;
+mod update_contract;
 mod views;
 
 #[cfg(test)]

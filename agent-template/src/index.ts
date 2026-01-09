@@ -31,7 +31,7 @@ export const agent = await ShadeClient.create({
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },
-  derivationPath: "tessdfsddft", // Random string (private key does a good job)
+  derivationPath: sponsorPrivateKey, // Random string (private key does a good job)
 });
 
 // Initialize app

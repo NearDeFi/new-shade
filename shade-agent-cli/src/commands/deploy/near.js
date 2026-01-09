@@ -3,6 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { NEAR } from '@near-js/tokens';
 import chalk from 'chalk';
+import bs58 from 'bs58';
 import { getConfig } from '../../utils/config.js';
 import { hasPlaceholder } from '../../utils/placeholders.js';
 import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
@@ -184,6 +185,39 @@ export async function deployCustomContractFromSource() {
         await innerDeployCustomContractFromWasm(wasmPath);
     } catch (e) {
         console.log(chalk.red(`Error building/deploying the custom contract from source: ${e.message}`));
+        process.exit(1);
+    }
+}
+
+// Deploy the custom contract using a global hash
+export async function deployCustomContractFromGlobalHash() {
+    const config = await getConfig();
+    const globalHash = config.deployment.agent_contract.deploy_custom.global_hash;
+    const contractAccount = config.contractAccount;
+    
+    try {
+        console.log(`Deploying the contract using global hash: ${globalHash}`);
+        
+        // Decode the base58-encoded hash to get the codeHash bytes
+        const codeHash = bs58.decode(globalHash);
+        
+        // Deploy using the global contract
+        const result = await contractAccount.useGlobalContract({
+            codeHash: codeHash,
+        });
+        
+        // Check transaction outcome if result is available
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to deploy contract from global hash'));
+                process.exit(1);
+            }
+        }
+        
+        await sleep(1000);
+    } catch (e) {
+        console.log(chalk.red(`Error deploying the custom contract from global hash: ${e.message}`));
         process.exit(1);
     }
 }

@@ -81,8 +81,10 @@ export function parseDeploymentConfig(deploymentPath) {
 
         const deployFromSource = agent_contract.deploy_custom.deploy_from_source;
         const deployFromWasm = agent_contract.deploy_custom.deploy_from_wasm;
+        const useGlobalByHash = agent_contract.deploy_custom.use_global_by_hash;
         const deployFromSourceEnabled = deployFromSource && deployFromSource.enabled !== false;
         const deployFromWasmEnabled = deployFromWasm && deployFromWasm.enabled !== false;
+        const useGlobalByHashEnabled = useGlobalByHash && useGlobalByHash.enabled !== false;
 
         // deploy_custom.deploy_from_source.source_path is required if deploy_from_source is enabled
         if (deployFromSourceEnabled) {
@@ -100,10 +102,19 @@ export function parseDeploymentConfig(deploymentPath) {
             );
         }
 
-        // deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm
+        // deploy_custom.use_global_by_hash.global_hash is required if use_global_by_hash is enabled
+        if (useGlobalByHashEnabled) {
+            requireField(
+                !!useGlobalByHash.global_hash,
+                'deploy_custom.use_global_by_hash.global_hash is required'
+            );
+        }
+
+        // deploy_custom must specify exactly one of deploy_from_source, deploy_from_wasm, or use_global_by_hash
+        const enabledCount = [deployFromSourceEnabled, deployFromWasmEnabled, useGlobalByHashEnabled].filter(Boolean).length;
         requireField(
-            deployFromSourceEnabled !== deployFromWasmEnabled,
-            'deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm'
+            enabledCount === 1,
+            'deploy_custom must specify exactly one of deploy_from_source, deploy_from_wasm, or use_global_by_hash'
         );
 
         // deploy_custom.init validations if enabled
@@ -156,6 +167,9 @@ export function parseDeploymentConfig(deploymentPath) {
                         : undefined,
                     wasm_path: (agent_contract.deploy_custom.deploy_from_wasm && agent_contract.deploy_custom.deploy_from_wasm.enabled !== false)
                         ? agent_contract.deploy_custom.deploy_from_wasm.wasm_path
+                        : undefined,
+                    global_hash: (agent_contract.deploy_custom.use_global_by_hash && agent_contract.deploy_custom.use_global_by_hash.enabled !== false)
+                        ? agent_contract.deploy_custom.use_global_by_hash.global_hash
                         : undefined,
                     init: (agent_contract.deploy_custom.init && agent_contract.deploy_custom.init.enabled !== false)
                         ? {

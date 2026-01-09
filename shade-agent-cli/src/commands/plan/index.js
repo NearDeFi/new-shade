@@ -122,13 +122,16 @@ export function planCommand() {
                 logWrapped(`• The contract account ${chalk.yellow(contractId)} will be created on ${chalk.yellow(network)} ${fundingLine} If the contract account already exists it will be cleared of its existing contract.`, 70, 2);
                 console.log('');
                 
-                // Deploy from source or WASM
+                // Deploy from source, WASM, or global hash
                 if (deployment.agent_contract.deploy_custom.source_path) {
                     const sourcePath = deployment.agent_contract.deploy_custom.source_path;
                     logWrapped(`• The agent contract in the ${chalk.yellow(sourcePath)} directory will be compiled then deployed to ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
                 } else if (deployment.agent_contract.deploy_custom.wasm_path) {
                     const wasmPath = deployment.agent_contract.deploy_custom.wasm_path;
-                logWrapped(`• The agent contract from the WASM file ${chalk.yellow(wasmPath)} will be deployed to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
+                    logWrapped(`• The agent contract from the WASM file ${chalk.yellow(wasmPath)} will be deployed to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
+                } else if (deployment.agent_contract.deploy_custom.global_hash) {
+                    const globalHash = deployment.agent_contract.deploy_custom.global_hash;
+                    logWrapped(`• The agent contract will be deployed using the global hash ${chalk.yellow(globalHash)} to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
                 }
                 
                 console.log('');

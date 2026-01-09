@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { dockerImage } from './docker.js';
-import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, initContract, approveCodehash, deleteContractKey } from './near.js';
-import { deployPhalaWorkflow, getAppUrl } from './phala.js';
+import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, deployCustomContractFromGlobalHash, initContract, approveCodehash, deleteContractKey } from './near.js';
+import { deployPhalaWorkflow } from './phala.js';
 import { getConfig } from '../../utils/config.js';
 import { createCommandErrorHandler } from '../../utils/error-handler.js';
 
@@ -30,6 +30,10 @@ export function deployCommand() {
 
             if (config.deployment.agent_contract.deploy_custom.wasm_path) {
                 await deployCustomContractFromWasm();
+            }
+
+            if (config.deployment.agent_contract.deploy_custom.global_hash) {
+                await deployCustomContractFromGlobalHash();
             }
 
             if (config.deployment.agent_contract.deploy_custom.init) {
