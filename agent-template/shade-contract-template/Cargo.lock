@@ -3029,6 +3029,7 @@ dependencies = [
  "dcap-qvl",
  "hex",
  "near-api",
+ "near-api-types",
  "near-sandbox",
  "near-sdk",
  "schemars 0.8.22",

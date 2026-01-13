@@ -1,4 +1,3 @@
-#[path = "helpers/mod.rs"]
 mod helpers;
 
 use helpers::*;
@@ -33,7 +32,7 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
         )
         .await?;
 
-        call_transaction(
+        let _ = call_transaction(
             &contract_id,
             "whitelist_agent",
             json!({
@@ -44,7 +43,8 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
             &network_config,
             None,
         )
-        .await?;
+        .await?
+        .assert_success();
 
         agent_ids.push(agent_id);
     }
@@ -79,7 +79,7 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
 
     assert_eq!(second_page.data.len(), 5, "Second page should have 5 agents");
 
-    // Test pagination - get last page
+    // Test pagination - get last 5 agents
     let last_page: Data<Vec<serde_json::Value>> = call_view(
         &contract_id,
         "get_agents",
@@ -93,7 +93,7 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
 
     assert_eq!(last_page.data.len(), 5, "Last page should have 5 agents");
 
-    // Test pagination - get all
+    // Test pagination - get all agents
     let all_agents: Data<Vec<serde_json::Value>> = call_view(
         &contract_id,
         "get_agents",
@@ -107,7 +107,7 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
 
     assert_eq!(all_agents.data.len(), 20, "Should have all 20 agents");
 
-    // Test pagination with limit larger than total
+    // Test pagination with limit larger than total agents
     let large_limit: Data<Vec<serde_json::Value>> = call_view(
         &contract_id,
         "get_agents",
@@ -120,8 +120,6 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
     .await?;
 
     assert_eq!(large_limit.data.len(), 20, "Should return all agents even with large limit");
-
-    println!("✅ Large dataset pagination test passed!");
 
     Ok(())
 }
