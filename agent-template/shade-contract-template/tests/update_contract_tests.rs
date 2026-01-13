@@ -22,18 +22,24 @@ async fn test_update_contract() -> Result<(), Box<dyn std::error::Error + Send +
         "/tests/contracts/contract_update.wasm"
     ))?;
 
-    // Pass WASM bytes as JSON array (Vec<u8> serializes to JSON array of numbers)
-    // This works with the contract's default JSON deserialization
-    call_transaction_raw(
+    // Pass gas (10 TGas) + WASM bytes concatenated
+    // First 8 bytes: gas as u64 little-endian, then WASM code
+    let gas_value: u64 = 10;
+    let mut input = gas_value.to_le_bytes().to_vec();
+    input.extend_from_slice(&wasm_bytes);
+
+    let result = call_transaction_raw(
         &contract_id,
         "update_contract",
-        wasm_bytes.to_vec(),
+        input,
         &genesis_account_id,
         &genesis_signer,
         &network_config,
     )
     .await?
-    .assert_success();
+    .into_result();
+
+    println!("result: {:?}", result);
 
     sleep(Duration::from_millis(200)).await;
 
