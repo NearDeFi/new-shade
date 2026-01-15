@@ -11,30 +11,74 @@ const fetchFn = globalThis.fetch;
 // Resolve the locally installed phala binary (installed via npm)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Get the expected phala version from package.json
+function getExpectedPhalaVersion() {
+    const cliPackageJsonPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
+    try {
+        const cliPkgJson = JSON.parse(fs.readFileSync(cliPackageJsonPath, 'utf8'));
+        const phalaVersion = cliPkgJson.dependencies?.phala || cliPkgJson.devDependencies?.phala;
+        return phalaVersion;
+    } catch (e) {
+        return null;
+    }
+}
+
 function getPhalaBin() {
-    // When CLI is installed globally or locally, phala should be in the CLI package's node_modules
-    // __dirname is commands/deploy/, so go up to src, then to package root, then to node_modules/.bin
-    const cliBin = path.resolve(__dirname, '..', '..', '..', 'node_modules', '.bin', 'phala');
-    if (fs.existsSync(cliBin)) return cliBin;
+    // Get the expected version from package.json
+    const expectedVersion = getExpectedPhalaVersion();
+    const cliRoot = path.resolve(__dirname, '..', '..', '..');
+    const phalaPkgPath = path.resolve(cliRoot, 'node_modules', 'phala');
     
-    // If not found in .bin, try to find the phala package and get its bin from package.json
-    const phalaPkgPath = path.resolve(__dirname, '..', '..', '..', 'node_modules', 'phala');
-    if (fs.existsSync(phalaPkgPath)) {
+    // First, verify the phala package exists and check its version
+    if (!fs.existsSync(phalaPkgPath)) {
+        const versionMsg = expectedVersion ? ` (expected ${expectedVersion})` : '';
+        console.log(chalk.red(`Phala package not found in node_modules${versionMsg}.`));
+        process.exit(1);
+    }
+    
+    // Verify version matches if we have an expected version
+    if (expectedVersion) {
         try {
-            const pkgJson = JSON.parse(fs.readFileSync(path.join(phalaPkgPath, 'package.json'), 'utf8'));
-            const binPath = pkgJson.bin?.phala || pkgJson.bin?.pha;
-            if (binPath) {
-                const fullBinPath = path.resolve(phalaPkgPath, binPath);
-                if (fs.existsSync(fullBinPath)) return fullBinPath;
+            const phalaPkgJson = JSON.parse(fs.readFileSync(path.join(phalaPkgPath, 'package.json'), 'utf8'));
+            const installedVersion = phalaPkgJson.version;
+            // Extract version from dependency spec (e.g., "1.0.35" from "^1.0.35" or "1.0.35")
+            const expectedVersionNum = expectedVersion.replace(/^[\^~]/, '');
+            
+            if (installedVersion !== expectedVersionNum && !expectedVersion.startsWith('^') && !expectedVersion.startsWith('~')) {
+                console.log(chalk.yellow(`Warning: Installed phala version (${installedVersion}) does not match expected version (${expectedVersionNum})`));
             }
         } catch (e) {
-            // Continue to error
+            // Continue if we can't read version
         }
     }
     
-    console.log(chalk.red('Phala binary not found. Make sure phala@1.0.35 is installed with @neardefi/shade-agent-cli.'));
+    // Try to find the binary in node_modules/.bin first (preferred)
+    const cliBin = path.resolve(cliRoot, 'node_modules', '.bin', 'phala');
+    if (fs.existsSync(cliBin)) {
+        return cliBin;
+    }
+    
+    // If not found in .bin, get the bin path from phala's package.json
+    try {
+        const phalaPkgJson = JSON.parse(fs.readFileSync(path.join(phalaPkgPath, 'package.json'), 'utf8'));
+        const binPath = phalaPkgJson.bin?.phala || phalaPkgJson.bin?.pha;
+        if (binPath) {
+            const fullBinPath = path.resolve(phalaPkgPath, binPath);
+            if (fs.existsSync(fullBinPath)) {
+                return fullBinPath;
+            }
+        }
+    } catch (e) {
+        // Continue to error
+    }
+    
+    const versionMsg = expectedVersion ? ` (expected ${expectedVersion})` : '';
+    console.log(chalk.red(`Phala binary not found in node_modules${versionMsg}.`));
+    console.log(chalk.yellow(`Make sure phala is installed: npm install`));
     process.exit(1);
 }
+
 const PHALA_COMMAND = getPhalaBin();
 
 // Get the app name from the deployment.yaml file
@@ -62,7 +106,7 @@ async function loginToPhala() {
     // Logs in to Phala Cloud
     console.log('Logging in to Phala Cloud');
     try {
-        execSync(`${PHALA_COMMAND} auth login ${phalaKey}`, { stdio: 'pipe' });
+        execSync(`${PHALA_COMMAND} login ${phalaKey}`, { stdio: 'pipe' });
     } catch (e) {
         console.log(chalk.red(`Error authenticating with Phala Cloud: ${e.message}`));
         process.exit(1);
@@ -86,23 +130,43 @@ async function deployToPhala() {
         const composePath = config.deployment.docker_compose_path;
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
+        // Need to deploy without kms, how?
         const result = execSync(
-            `${PHALA_COMMAND} cvms create --name ${appName} --vcpu 1 --compose ${composePath} --env-file ${envFilePath}`,
+            `${PHALA_COMMAND} deploy --name ${appName} --image dstack-0.5.4.1 --compose ${composePath} --env-file ${envFilePath}`,
             { encoding: 'utf-8', stdio: 'pipe' }
         );
 
-        const deploymentUrlMatch = result.match(/App URL\s*│\s*(https:\/\/[^\s]+)/);
-        if (deploymentUrlMatch) {
-            const deploymentUrl = deploymentUrlMatch[1];
-            console.log(`\nPhala Application Dashboard URL: ${deploymentUrl}`);
+        // Parse JSON response from phala deploy command
+        let deployResult;
+        try {
+            // Extract JSON from output (may have text before/after)
+            const jsonMatch = result.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error('No JSON found in output');
+            }
+            deployResult = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+            console.log(chalk.red(`Failed to parse deployment response: ${e.message}`));
+            console.log(chalk.gray(`Output: ${result}`));
+            process.exit(1);
         }
-        
-        // Extract App ID from the output 
-        const appId = result.match(/App ID\s*│\s*(app_[a-f0-9]+)/);
-        if (appId) {
-            return appId[1];
+
+        // Check if deployment was successful
+        if (!deployResult.success) {
+            console.log(chalk.red('Deployment failed'));
+            process.exit(1);
+        }
+
+        // Display dashboard URL
+        if (deployResult.dashboard_url) {
+            console.log(`\nPhala Application Dashboard URL: ${deployResult.dashboard_url}`);
+        }
+
+        // Return vm_uuid for API calls (getAppUrl uses it in the URL path)
+        if (deployResult.vm_uuid) {
+            return deployResult.vm_uuid;
         } else {
-            console.log(chalk.red('Could not extract App ID from output'));
+            console.log(chalk.red('Could not extract vm_uuid from deployment response'));
             process.exit(1);
         }
     } catch (e) {

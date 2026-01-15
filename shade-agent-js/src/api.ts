@@ -2,10 +2,10 @@ import { Provider } from "@near-js/providers";
 import { createDefaultProvider, internalFundAgent } from "./utils/near";
 import {
   Attestation,
-  getTappdClient,
+  getDstackClient,
   internalGetAttestation,
 } from "./utils/tee";
-import { TappdClient } from "./utils/tappd";
+import { DstackClient } from "@phala/dstack-sdk";
 import { manageKeySetup, generateAgent, getAgentSigner } from "./utils/agent";
 import { Account } from "@near-js/accounts";
 import {
@@ -56,7 +56,7 @@ export interface ShadeConfig {
 
 export class ShadeClient {
   private config: ShadeConfig;
-  private tappdClient: TappdClient | undefined; // If undefined, then the agent is not running in a TEE
+  private dstackClient: DstackClient | undefined; // If undefined, then the agent is not running in a TEE
   private agentAccountId: string;
   private agentPrivateKeys: string[];
   private currentKeyIndex: number;
@@ -66,13 +66,13 @@ export class ShadeClient {
   // Private constructor so only `create()` can be used to create an instance
   private constructor(
     config: ShadeConfig,
-    tappdClient: TappdClient | undefined,
+    dstackClient: DstackClient | undefined,
     accountId: string,
     agentPrivateKeys: string[],
     keysDerivedWithTEE: boolean,
   ) {
     this.config = config;
-    this.tappdClient = tappdClient;
+    this.dstackClient = dstackClient;
     this.agentAccountId = accountId;
     this.agentPrivateKeys = agentPrivateKeys;
     this.currentKeyIndex = 0;
@@ -140,12 +140,12 @@ export class ShadeClient {
     }
 
     // Detect if running in a TEE
-    const tappdClient = await getTappdClient();
+    const dstackClient = await getDstackClient();
 
     // Generate agent account ID and private key
     const agentPrivateKeys: string[] = [];
     const { accountId, agentPrivateKey, derivedWithTEE } = await generateAgent(
-      tappdClient,
+      dstackClient,
       config.derivationPath,
     );
     agentPrivateKeys.push(agentPrivateKey);
@@ -153,7 +153,7 @@ export class ShadeClient {
     // Return agent instance
     return new ShadeClient(
       config,
-      tappdClient,
+      dstackClient,
       accountId,
       agentPrivateKeys,
       derivedWithTEE,
@@ -233,7 +233,7 @@ export class ShadeClient {
     }
 
     const attestation = await internalGetAttestation(
-      this.tappdClient,
+      this.dstackClient,
       this.agentAccountId,
       this.keysDerivedWithTEE,
     );
@@ -310,7 +310,7 @@ export class ShadeClient {
       const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
         agentAccount,
         this.config.numKeys - 1,
-        this.tappdClient,
+        this.dstackClient,
         this.config.derivationPath,
       );
       this.agentPrivateKeys.push(...keysToSave);
@@ -350,7 +350,7 @@ export class ShadeClient {
    */
   async getAttestation(): Promise<Attestation> {
     return internalGetAttestation(
-      this.tappdClient,
+      this.dstackClient,
       this.agentAccountId,
       this.keysDerivedWithTEE,
     );
