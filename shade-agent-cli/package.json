@@ -21,7 +21,7 @@
         "chalk": "^5.4.1",
         "commander": "^14.0.0",
         "dotenv": "^16.5.0",
-        "phala": "1.0.35",
+        "phala": "1.1.2",
         "random-words": "^2.0.1",
         "yaml": "^2.5.0"
     },

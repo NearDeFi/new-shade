@@ -5,10 +5,10 @@ services:
       SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
       SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
     platform: linux/amd64
-    image: pivortex/shade-agent-test@sha256:c8f0bd2e2f6c5aaebda8fd9eb57d69ea8ef3c63cd6dfed65cad74bfd0cb9a451
+    image: pivortex/shade-agent-test@sha256:ba035ae04e2061d2768f86e0e5e02e3df280e5a9f5cfa86f2dcc6c92576d127b
     container_name: shade-agent-app
     ports:
       - 3000:3000
     volumes:
-      - /var/run/tappd.sock:/var/run/tappd.sock
+      - /var/run/dstack.sock:/var/run/dstack.sock
     restart: always
