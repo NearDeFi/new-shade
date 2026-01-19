@@ -13,7 +13,7 @@ export const createMockDstackClient = (): DstackClient => {
       key: new Uint8Array(32).fill(1),
     }),
     getQuote: vi.fn().mockResolvedValue({
-      quote: '0x' + 'a'.repeat(200),
+      quote: '0'.repeat(200),
     }),
   } as unknown as DstackClient;
 };
