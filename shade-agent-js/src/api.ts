@@ -117,7 +117,6 @@ export class ShadeClient {
     return this.agentAccountId;
   }
 
-
   /**
    * Gets the NEAR balance of the agent account in human readable format (e.g. 1 = one NEAR)
    * @returns Promise that resolves to the account balance in NEAR tokens, if the agent account does not exist, returns 0
