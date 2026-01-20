@@ -24,6 +24,15 @@ export function createDefaultProvider(networkId: string): JsonRpcProvider {
   );
 }
 
+// Creates an Account instance
+export function createAccountObject(
+  accountId: string,
+  provider: Provider,
+  signer?: KeyPairSigner,
+): Account {
+  return new Account(accountId, provider, signer);
+}
+
 // Transfers NEAR tokens from sponsor account to agent account
 export async function internalFundAgent(
   agentAccountId: string,
@@ -39,12 +48,10 @@ export async function internalFundAgent(
   const account = new Account(sponsorAccountId, provider, signer);
 
   const maxRetries = 3;
-  let lastError: Error | undefined;
-  let fundResult: FinalExecutionOutcome | undefined;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      fundResult = await account.transfer({
+      const fundResult = await account.transfer({
         token: NEAR,
         amount: NEAR.toUnits(amount),
         receiverId: agentAccountId,
@@ -55,33 +62,25 @@ export async function internalFundAgent(
         const errorMsg =
           fundResult.status.Failure.error_message ||
           fundResult.status.Failure.error_type;
-        lastError = new Error(`Transfer transaction failed: ${errorMsg}`);
-        // Continue to retry if not the last attempt
-        if (attempt < maxRetries) {
-          continue;
+        const error = new Error(`Transfer transaction failed: ${errorMsg}`);
+        // Throw on final attempt, otherwise retry
+        if (attempt === maxRetries) {
+          throw error;
         }
+        continue;
       } else {
         // Success - transaction completed without failure
         return;
       }
     } catch (error) {
-      lastError = new Error(
-        `Failed to fund agent account ${agentAccountId} (attempt ${attempt}/${maxRetries}): ${error}`,
-      );
-      // Continue to retry if not the last attempt
-      if (attempt < maxRetries) {
-        continue;
+      // Throw on final attempt, otherwise retry
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Failed to fund agent account ${agentAccountId} (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }
-
-  // All retries exhausted, throw the last error
-  throw (
-    lastError ||
-    new Error(
-      `Failed to fund agent account ${agentAccountId} after ${maxRetries} attempts`,
-    )
-  );
 }
 
 // Adds multiple keys to the agent account from secret keys
@@ -90,8 +89,6 @@ export async function addKeysToAccount(
   secrets: string[],
 ): Promise<void> {
   const maxRetries = 3;
-  let lastError: Error | undefined;
-  let txResult: FinalExecutionOutcome | undefined;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -111,37 +108,32 @@ export async function addKeysToAccount(
       );
 
       // Send transaction
-      txResult = await account.provider.sendTransaction(tx);
+      const txResult = await account.provider.sendTransaction(tx);
 
       // Check transaction status
       if (typeof txResult.status === "object" && txResult.status.Failure) {
         const errorMsg =
           txResult.status.Failure.error_message ||
           txResult.status.Failure.error_type;
-        lastError = new Error(`Add keys transaction failed: ${errorMsg}`);
-        // Continue to retry if not the last attempt
-        if (attempt < maxRetries) {
-          continue;
+        const error = new Error(`Add keys transaction failed: ${errorMsg}`);
+        // Throw on final attempt, otherwise retry
+        if (attempt === maxRetries) {
+          throw error;
         }
+        continue;
       } else {
         // Success - transaction completed without failure
         return;
       }
     } catch (error) {
-      lastError = new Error(
-        `Failed to add keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
-      );
-      // Continue to retry if not the last attempt
-      if (attempt < maxRetries) {
-        continue;
+      // Throw on final attempt, otherwise retry
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Failed to add keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }
-
-  // All retries exhausted, throw the last error
-  throw (
-    lastError || new Error(`Failed to add keys after ${maxRetries} attempts`)
-  );
 }
 
 // Removes multiple keys from the agent account
@@ -150,8 +142,6 @@ export async function removeKeysFromAccount(
   secrets: string[],
 ): Promise<void> {
   const maxRetries = 3;
-  let lastError: Error | undefined;
-  let txResult: FinalExecutionOutcome | undefined;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -168,35 +158,30 @@ export async function removeKeysFromAccount(
       );
 
       // Send transaction
-      txResult = await account.provider.sendTransaction(tx);
+      const txResult = await account.provider.sendTransaction(tx);
 
       // Check transaction status
       if (typeof txResult.status === "object" && txResult.status.Failure) {
         const errorMsg =
           txResult.status.Failure.error_message ||
           txResult.status.Failure.error_type;
-        lastError = new Error(`Remove keys transaction failed: ${errorMsg}`);
-        // Continue to retry if not the last attempt
-        if (attempt < maxRetries) {
-          continue;
+        const error = new Error(`Remove keys transaction failed: ${errorMsg}`);
+        // Throw on final attempt, otherwise retry
+        if (attempt === maxRetries) {
+          throw error;
         }
+        continue;
       } else {
         // Success - transaction completed without failure
         return;
       }
     } catch (error) {
-      lastError = new Error(
-        `Failed to remove keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
-      );
-      // Continue to retry if not the last attempt
-      if (attempt < maxRetries) {
-        continue;
+      // Throw on final attempt, otherwise retry
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Failed to remove keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }
-
-  // All retries exhausted, throw the last error
-  throw (
-    lastError || new Error(`Failed to remove keys after ${maxRetries} attempts`)
-  );
 }

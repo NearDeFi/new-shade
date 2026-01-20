@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import { TappdClient } from "./tappd";
+import { DstackClient } from "@phala/dstack-sdk";
 
 export interface Attestation {
   quote_hex: string;
@@ -13,29 +13,29 @@ export interface Attestation {
 // then it will generate a deterministic account ID for the agent.
 // This could be dangerous, however, it will not be able to register in the contract
 // as it will not provide the attestation, which is required for registration.
-export async function getTappdClient(): Promise<TappdClient | undefined> {
+export async function getDstackClient(): Promise<DstackClient | undefined> {
   // First check if socket exists
-  if (!existsSync("/var/run/tappd.sock")) {
+  if (!existsSync("/var/run/dstack.sock")) {
     return undefined;
   }
 
-  // Then test if Tappd client actually works, if so return the client
+  // Then test if Dstack client actually works, if so return the client
   try {
-    const client = new TappdClient();
-    await client.getInfo();
+    const client = new DstackClient();
+    await client.info();
     return client;
-  } catch (error) {
+  } catch {
     return undefined;
   }
 }
 
 // Gets the TEE attestation for the agent
 export async function internalGetAttestation(
-  tappdClient: TappdClient | undefined,
+  dstackClient: DstackClient | undefined,
   agentAccountId: string,
   keysDerivedWithTEE: boolean,
 ): Promise<Attestation> {
-  if (!tappdClient || !keysDerivedWithTEE) {
+  if (!dstackClient || !keysDerivedWithTEE) {
     // If not in a TEE or keys were not derived with TEE, return a dummy attestation
     return {
       quote_hex: "not-in-a-tee",
@@ -45,21 +45,21 @@ export async function internalGetAttestation(
     };
   } else {
     // If in a TEE, get real attestation
-    let tcb_info = (await tappdClient.getInfo()).tcb_info;
+    const info = await dstackClient.info();
+    // Convert tcb_info to string (always an object)
+    const tcb_info: string = JSON.stringify(info.tcb_info);
 
-    // Parse tcb_info
-    if (typeof tcb_info !== "string") {
-      tcb_info = JSON.stringify(tcb_info);
-    }
-
-    // Get TDX quote
-    const ra = await tappdClient.tdxQuote(agentAccountId, "raw");
+    // Get quote 
+    // Include the agent's account id as the report data
+    const reportData = Buffer.from(agentAccountId, "utf-8");
+    const ra = await dstackClient.getQuote(reportData);
     const quote_hex = ra.quote.replace(/^0x/, "");
 
     // Get quote collateral
     const formData = new FormData();
     formData.append("hex", quote_hex);
 
+    // Get quote collateral
     let collateral: string, checksum: string;
     try {
       // Add timeout to prevent hanging indefinitely
