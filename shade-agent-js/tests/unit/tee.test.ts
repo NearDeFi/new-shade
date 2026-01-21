@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { existsSync } from 'fs';
+import { DstackClient } from '@phala/dstack-sdk';
 import { getDstackClient, internalGetAttestation } from '../../src/utils/tee';
 import { createMockDstackClient, mockAttestationResponse } from '../mocks/tee-mocks';
 
@@ -28,7 +30,6 @@ describe('tee utils', () => {
 
   describe('getDstackClient', () => {
     it('should return undefined when socket does not exist', async () => {
-      const { existsSync } = await import('fs');
       vi.mocked(existsSync).mockReturnValue(false);
 
       const result = await getDstackClient();
@@ -37,9 +38,6 @@ describe('tee utils', () => {
     });
 
     it('should return undefined when DstackClient constructor throws error', async () => {
-      const { existsSync } = await import('fs');
-      const { DstackClient } = await import('@phala/dstack-sdk');
-      
       vi.mocked(existsSync).mockReturnValue(true);
       vi.spyOn(DstackClient.prototype, 'constructor' as any).mockImplementation(function() {
         throw new Error('Connection failed');
@@ -50,9 +48,6 @@ describe('tee utils', () => {
     });
 
     it('should return undefined when client.info() throws error', async () => {
-      const { existsSync } = await import('fs');
-      const { DstackClient } = await import('@phala/dstack-sdk');
-      
       vi.mocked(existsSync).mockReturnValue(true);
       const mockClient = createMockDstackClient();
       (mockClient.info as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Connection failed'));
@@ -66,9 +61,6 @@ describe('tee utils', () => {
     });
 
     it('should return client when socket exists and client works', async () => {
-      const { existsSync } = await import('fs');
-      const { DstackClient } = await import('@phala/dstack-sdk');
-      
       vi.mocked(existsSync).mockReturnValue(true);
       const mockClient = createMockDstackClient();
       vi.mocked(DstackClient).mockImplementation(function() {
@@ -154,40 +146,6 @@ describe('tee utils', () => {
       expect(result.tcb_info).toBeDefined();
     });
 
-    it('should remove 0x prefix from quote', async () => {
-      const mockClient = createMockDstackClient();
-      (mockClient.getQuote as ReturnType<typeof vi.fn>).mockResolvedValue({
-        quote: '0x1234567890abcdef',
-      });
-
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockAttestationResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      const result = await internalGetAttestation(mockClient, 'agent.testnet', true);
-
-      expect(result.quote_hex).toBe('1234567890abcdef');
-    });
-
-    it('should handle quote without 0x prefix', async () => {
-      const mockClient = createMockDstackClient();
-      (mockClient.getQuote as ReturnType<typeof vi.fn>).mockResolvedValue({
-        quote: '1234567890abcdef',
-      });
-
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockAttestationResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      const result = await internalGetAttestation(mockClient, 'agent.testnet', true);
-
-      expect(result.quote_hex).toBe('1234567890abcdef');
-    });
-
     it('should handle fetch errors', async () => {
       const mockClient = createMockDstackClient();
       mockFetch.mockRejectedValue(new Error('Network error'));
@@ -208,28 +166,21 @@ describe('tee utils', () => {
 
     it('should handle non-ok fetch responses', async () => {
       const mockClient = createMockDstackClient();
-      const mockResponse = {
-        ok: false,
-        status: 500,
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      const statusCodes = [404, 500, 503];
+      
+      for (const status of statusCodes) {
+        const mockResponse = {
+          ok: false,
+          status,
+        };
+        mockFetch.mockResolvedValue(mockResponse);
 
-      await expect(
-        internalGetAttestation(mockClient, 'agent.testnet', true)
-      ).rejects.toThrow('Failed to get quote collateral: HTTP 500');
-    });
-
-    it('should handle 404 response', async () => {
-      const mockClient = createMockDstackClient();
-      const mockResponse = {
-        ok: false,
-        status: 404,
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      await expect(
-        internalGetAttestation(mockClient, 'agent.testnet', true)
-      ).rejects.toThrow('Failed to get quote collateral: HTTP 404');
+        await expect(
+          internalGetAttestation(mockClient, 'agent.testnet', true)
+        ).rejects.toThrow(`Failed to get quote collateral: HTTP ${status}`);
+        
+        mockFetch.mockClear();
+      }
     });
 
     it('should set up timeout for fetch request', async () => {

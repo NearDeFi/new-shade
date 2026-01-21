@@ -8,6 +8,11 @@ export interface Attestation {
   tcb_info: string;
 }
 
+interface QuoteCollateralResponse {
+  checksum: string;
+  quote_collateral: unknown;
+}
+
 // Detects if the application is running in a TEE
 // If it is running in a TEE but this fails for whatever reason,
 // then it will generate a deterministic account ID for the agent.
@@ -80,7 +85,7 @@ export async function internalGetAttestation(
         );
       }
 
-      const resHelper = await response.json();
+      const resHelper = await response.json() as QuoteCollateralResponse;
       checksum = resHelper.checksum;
       collateral = JSON.stringify(resHelper.quote_collateral);
     } catch (error) {

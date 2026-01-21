@@ -4,7 +4,6 @@ import { KeyPairSigner } from "@near-js/signers";
 import { Account } from "@near-js/accounts";
 import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { NEAR } from "@near-js/tokens";
-import { FinalExecutionOutcome } from "@near-js/types";
 import { actionCreators } from "@near-js/transactions";
 
 // Creates a default JSON RPC provider for the specified network
