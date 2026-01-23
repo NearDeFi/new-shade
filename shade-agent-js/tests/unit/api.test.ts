@@ -201,7 +201,7 @@ describe('ShadeClient', () => {
         account_id: testAccountId,
         registered: true,
         whitelisted: true,
-        codehash_is_approved: true,
+        measurements_are_approved: true,
       };
       (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
       
@@ -221,7 +221,7 @@ describe('ShadeClient', () => {
       expect(status).toEqual({
         registered: true,
         whitelisted: true,
-        codehash_is_approved: true,
+        measurements_are_approved: true,
       });
     });
 
@@ -239,7 +239,7 @@ describe('ShadeClient', () => {
       expect(status).toEqual({
         registered: false,
         whitelisted: false,
-        codehash_is_approved: false,
+        measurements_are_approved: false,
       });
     });
 

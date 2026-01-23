@@ -1,7 +1,7 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
 import {
-  Attestation,
+  DstackAttestation,
   getDstackClient,
   internalGetAttestation,
 } from "./utils/tee";
@@ -15,18 +15,38 @@ import {
 } from "@near-js/types"; 
 import { NEAR } from "@near-js/tokens";
 
+export interface Measurements {
+  /** MRTD (Measurement of Root of Trust for Data) - identifies the virtual firmware. */
+  mrtd: string;
+  /** RTMR0 (Runtime Measurement Register 0) - typically measures the bootloader, virtual firmware data, and configuration. */
+  rtmr0: string;
+  /** RTMR1 (Runtime Measurement Register 1) - typically measures the OS kernel, boot parameters, and initrd (initial ramdisk). */
+  rtmr1: string;
+  /** RTMR2 (Runtime Measurement Register 2) - typically measures the OS application. */
+  rtmr2: string;
+}
+
+export interface FullMeasurements {
+  /** Expected RTMRs (Runtime Measurement Registers). */
+  rtmrs: Measurements;
+  /** Expected digest for the key-provider event. */
+  key_provider_event_digest: string;
+  /** Expected app_compose hash payload. */
+  app_compose_hash_payload: string;
+}
+
 export interface AgentStatus {
   registered: boolean;
   whitelisted: boolean;
-  codehash_is_approved: boolean;
+  measurements_are_approved: boolean;
 }
 
 interface GetAgentResponse {
   account_id: string;
   registered: boolean;
   whitelisted: boolean;
-  codehash?: string | null;
-  codehash_is_approved: boolean;
+  measurements?: FullMeasurements | null;
+  measurements_are_approved: boolean;
 }
 
 /**
@@ -142,7 +162,7 @@ export class ShadeClient {
 
   /**
    * Checks the agent's registration status on the agent contract
-   * @returns Promise that resolves to an AgentStatus object containing registered, whitelisted, and codehash_is_approved booleans
+   * @returns Promise that resolves to an AgentStatus object containing registered, whitelisted, and measurements_are_approved booleans
    * @throws Error if agentContractId is not configured or if view call fails
    */
   async registrationStatus(): Promise<AgentStatus> {
@@ -163,14 +183,14 @@ export class ShadeClient {
       return {
         registered: false,
         whitelisted: false,
-        codehash_is_approved: false,
+        measurements_are_approved: false,
       };
     }
 
     return {
       registered: res.registered,
       whitelisted: res.whitelisted,
-      codehash_is_approved: res.codehash_is_approved,
+      measurements_are_approved: res.measurements_are_approved,
     };
   }
 
@@ -290,10 +310,10 @@ export class ShadeClient {
 
   /**
    * Gets the TEE attestation for the agent
-   * @returns Promise that resolves to the attestation object
+   * @returns Promise that resolves to the DstackAttestation object
    * @throws Error if fetching quote collateral fails (network errors, HTTP errors, timeouts)
    */
-  async getAttestation(): Promise<Attestation> {
+  async getAttestation(): Promise<DstackAttestation> {
     return internalGetAttestation(
       this.dstackClient,
       this.agentAccountId,
