@@ -5,6 +5,7 @@ import {
   getDstackClient,
   internalGetAttestation,
 } from "./utils/tee";
+import { attestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
 import { validateShadeConfig } from "./utils/validation";
@@ -210,11 +211,14 @@ export class ShadeClient {
       this.keysDerivedWithTEE,
     );
 
+    // Convert attestation to contract format (arrays to hex strings for collateral)
+    const contractAttestation = attestationForContract(attestation);
+
     // Call the register_agent function on the agent contract
     return await this.call({
       methodName: "register_agent",
       args: {
-        attestation,
+        attestation: contractAttestation,
       },
       gas: BigInt("250000000000000"), // 250 TGas
     });

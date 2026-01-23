@@ -11,7 +11,7 @@ use serde_with::{Bytes, serde_as};
 /// - https://docs.phala.network/phala-cloud/tees-attestation-and-zero-trust-security/attestation#runtime-measurement-fields
 /// - https://arxiv.org/pdf/2303.15540 (Section 9.1)
 #[serde_as]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Measurements {
     /// MRTD (Measurement of Root of Trust for Data) - identifies the virtual firmware.
     #[serde_as(as = "Bytes")]
@@ -41,7 +41,7 @@ impl Default for Measurements {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct FullMeasurements {
     /// Expected RTMRs (Runtime Measurement Registers).
     pub rtmrs: Measurements,

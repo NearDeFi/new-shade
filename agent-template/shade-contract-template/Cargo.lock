@@ -3299,6 +3299,7 @@ dependencies = [
  "dcap-qvl",
  "derive_more 2.1.1",
  "dstack-sdk-types",
+ "getrandom 0.2.16",
  "hex",
  "serde",
  "serde_json",
@@ -3312,17 +3313,11 @@ dependencies = [
 name = "shade-contract"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
- "dcap-qvl",
  "hex",
  "near-api",
- "near-api-types",
  "near-sandbox",
  "near-sdk",
- "schemars 0.8.22",
  "serde",
- "serde_json",
- "sha2 0.10.9",
  "shade-attestation",
  "tokio",
 ]

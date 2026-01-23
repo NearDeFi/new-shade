@@ -18,6 +18,9 @@ sha2 = "0.10.9"
 thiserror = "2.0.12"
 tracing = "0.1.40"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["custom"] }
+
 [dev-dependencies]
 rstest = "0.25.0"
 # Note: test-utils dependency removed - tests will need to be updated

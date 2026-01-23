@@ -1392,6 +1392,7 @@ dependencies = [
  "dcap-qvl",
  "derive_more 2.1.1",
  "dstack-sdk-types",
+ "getrandom",
  "hex",
  "rstest",
  "serde",

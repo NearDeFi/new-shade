@@ -309,23 +309,23 @@ export async function approveCodehash() {
         // Resolve codehash placeholder based on environment and docker-compose
         let args = approveCfg.args;
 
-        // Only process codehash if the placeholder exists in args
-        if (hasPlaceholder(approveCfg.args, '<CODEHASH>')) {
-            // Always read from docker-compose.yaml - it will have been updated by dockerImage() if build_docker_image is enabled
-            const composePath = config.deployment.environment === 'TEE'
-                ? config.deployment.docker_compose_path
-                : null;
-            const codehashValue = getCodehashValueForDeploy(config.deployment, composePath);
+        // Check if codehash placeholder exists
+        const hasCodehashPlaceholder = hasPlaceholder(approveCfg.args, '<CODEHASH>');
+        const codehashValue = hasCodehashPlaceholder
+            ? getCodehashValueForDeploy(
+                config.deployment,
+                config.deployment.environment === 'TEE' ? config.deployment.docker_compose_path : null
+            )
+            : null;
 
-            // Resolve all deployment placeholders (including CODEHASH)
-            args = resolveDeploymentPlaceholders(
-                approveCfg.args,
-                config.accountId,
-                config.deployment.network,
-                config.deployment.environment,
-                codehashValue
-            );
-        }
+        // Always resolve deployment placeholders (this also parses JSON strings)
+        args = resolveDeploymentPlaceholders(
+            approveCfg.args,
+            config.accountId,
+            config.deployment.network,
+            config.deployment.environment,
+            codehashValue
+        );
 
         const result = await masterAccount.callFunctionRaw({
             contractId,
