@@ -8,11 +8,11 @@ impl Contract {
     }
 
     // Get the list of approved codehashes
-    pub fn get_approved_codehashes(
+    pub fn get_approved_measurements(
         &self,
         from_index: &Option<u32>,
         limit: &Option<u32>,
-    ) -> Vec<FullMeasurements> {
+    ) -> Vec<FullMeasurementsHex> {
         let from = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(self.approved_measurements.len() as u32);
 

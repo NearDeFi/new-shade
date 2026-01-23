@@ -6,7 +6,7 @@ use near_sdk::{
 };
 use shade_attestation::{
     attestation::DstackAttestation,
-    measurements::FullMeasurements,
+    measurements::{FullMeasurements, FullMeasurementsHex},
     report_data::ReportData,
 };
 use hex;
@@ -23,8 +23,8 @@ mod unit_tests;
 #[derive(PanicOnDefault)]
 pub struct Contract {
     pub owner_id: AccountId,
-    pub approved_measurements: IterableSet<FullMeasurements>,
-    pub agents: IterableMap<AccountId, Option<FullMeasurements>>,
+    pub approved_measurements: IterableSet<FullMeasurementsHex>,
+    pub agents: IterableMap<AccountId, Option<FullMeasurementsHex>>,
     pub requires_tee: bool,
     pub mpc_contract_id: AccountId,
 }
@@ -35,7 +35,7 @@ pub struct Agent {
     account_id: AccountId,
     registered: bool,
     whitelisted: bool,
-    measurements: Option<FullMeasurements>,
+    measurements: Option<FullMeasurementsHex>,
     measurements_are_approved: bool,
 }
 
@@ -67,7 +67,7 @@ impl Contract {
             .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
 
-        let measurements: FullMeasurements = match self.requires_tee {
+        let measurements: FullMeasurementsHex = match self.requires_tee {
             true => {
                 // Get the current time 
                 let current_time_seconds = block_timestamp_ms() / 1000;
@@ -89,16 +89,17 @@ impl Contract {
                 report_data_bytes[..32].copy_from_slice(&account_id_bytes);
                 let expected_report_data = ReportData::from(report_data_bytes);
 
-                // Convert IterableSet to Vec for the verify method
+                // Convert IterableSet to Vec and convert to FullMeasurements for the verify method
                 let expected_measurements: Vec<FullMeasurements> = self.approved_measurements
                     .iter()
                     .cloned()
+                    .map(Into::into)
                     .collect();
-
+                
                 match attestation.verify(expected_report_data, current_time_seconds, &expected_measurements) {
                     Ok(verified_measurements) => {
                         log!("Attestation verified successfully");
-                        verified_measurements
+                        verified_measurements.into()
                     }
                     Err(e) => {
                         panic!("Attestation verification failed: {}", e);
@@ -107,7 +108,7 @@ impl Contract {
             }
             false => {
                 // All zeros for non-TEE
-                let default_measurements = FullMeasurements::default();
+                let default_measurements = FullMeasurementsHex::default();
                 require!(
                     self.approved_measurements.contains(&default_measurements),
                     "Default measurements must be approved for non-TEE mode"
@@ -139,13 +140,13 @@ impl Contract {
     // Owner methods
 
     // Add a new measurements to the approved list
-    pub fn approve_measurements(&mut self, measurements: FullMeasurements) {
+    pub fn approve_measurements(&mut self, measurements: FullMeasurementsHex) {
         self.require_owner();
         self.approved_measurements.insert(measurements);
     }
 
     // Remove a measurements from the approved list
-    pub fn remove_measurements(&mut self, measurements: FullMeasurements) {
+    pub fn remove_measurements(&mut self, measurements: FullMeasurementsHex) {
         self.require_owner();
         self.approved_measurements.remove(&measurements);
     }

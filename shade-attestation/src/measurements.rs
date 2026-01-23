@@ -1,7 +1,7 @@
 use alloc::string::String;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
-use serde_with::{Bytes, serde_as};
+use serde_with::{hex::Hex, Bytes, serde_as};
 
 /// Required measurements for TEE attestation verification (a.k.a. RTMRs checks). These values
 /// define the trusted baseline that TEE environments must match during verification. They
@@ -11,7 +11,7 @@ use serde_with::{Bytes, serde_as};
 /// - https://docs.phala.network/phala-cloud/tees-attestation-and-zero-trust-security/attestation#runtime-measurement-fields
 /// - https://arxiv.org/pdf/2303.15540 (Section 9.1)
 #[serde_as]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Measurements {
     /// MRTD (Measurement of Root of Trust for Data) - identifies the virtual firmware.
     #[serde_as(as = "Bytes")]
@@ -41,7 +41,7 @@ impl Default for Measurements {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct FullMeasurements {
     /// Expected RTMRs (Runtime Measurement Registers).
     pub rtmrs: Measurements,
@@ -54,12 +54,100 @@ pub struct FullMeasurements {
     pub app_compose_hash_payload: [u8; 32],
 }
 
-impl Default for FullMeasurements {
+/// Hex-compatible version of Measurements that deserializes from hex strings.
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+pub struct MeasurementsHex {
+    /// MRTD (Measurement of Root of Trust for Data) - identifies the virtual firmware.
+    #[serde_as(as = "Hex")]
+    pub mrtd: [u8; 48],
+    /// RTMR0 (Runtime Measurement Register 0) - typically measures the bootloader, virtual
+    /// firmware data, and configuration.
+    #[serde_as(as = "Hex")]
+    pub rtmr0: [u8; 48],
+    /// RTMR1 (Runtime Measurement Register 1) - typically measures the OS kernel, boot parameters,
+    /// and initrd (initial ramdisk).
+    #[serde_as(as = "Hex")]
+    pub rtmr1: [u8; 48],
+    /// RTMR2 (Runtime Measurement Register 2) - typically measures the OS application.
+    #[serde_as(as = "Hex")]
+    pub rtmr2: [u8; 48],
+}
+
+impl Default for MeasurementsHex {
     fn default() -> Self {
         Self {
-            rtmrs: Measurements::default(),
+            mrtd: [0; 48],
+            rtmr0: [0; 48],
+            rtmr1: [0; 48],
+            rtmr2: [0; 48],
+        }
+    }
+}
+
+impl From<MeasurementsHex> for Measurements {
+    fn from(hex: MeasurementsHex) -> Self {
+        Self {
+            mrtd: hex.mrtd,
+            rtmr0: hex.rtmr0,
+            rtmr1: hex.rtmr1,
+            rtmr2: hex.rtmr2,
+        }
+    }
+}
+
+impl From<Measurements> for MeasurementsHex {
+    fn from(measurements: Measurements) -> Self {
+        Self {
+            mrtd: measurements.mrtd,
+            rtmr0: measurements.rtmr0,
+            rtmr1: measurements.rtmr1,
+            rtmr2: measurements.rtmr2,
+        }
+    }
+}
+
+/// Hex-compatible version of FullMeasurements that deserializes from hex strings.
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+pub struct FullMeasurementsHex {
+    /// Expected RTMRs (Runtime Measurement Registers).
+    pub rtmrs: MeasurementsHex,
+    /// Expected digest for the key-provider event.
+    #[serde_as(as = "Hex")]
+    pub key_provider_event_digest: [u8; 48],
+
+    /// Expected app_compose hash payload.
+    #[serde_as(as = "Hex")]
+    pub app_compose_hash_payload: [u8; 32],
+}
+
+impl Default for FullMeasurementsHex {
+    fn default() -> Self {
+        Self {
+            rtmrs: MeasurementsHex::default(),
             key_provider_event_digest: [0; 48],
             app_compose_hash_payload: [0; 32],
+        }
+    }
+}
+
+impl From<FullMeasurementsHex> for FullMeasurements {
+    fn from(hex: FullMeasurementsHex) -> Self {
+        Self {
+            rtmrs: hex.rtmrs.into(),
+            key_provider_event_digest: hex.key_provider_event_digest,
+            app_compose_hash_payload: hex.app_compose_hash_payload,
+        }
+    }
+}
+
+impl From<FullMeasurements> for FullMeasurementsHex {
+    fn from(measurements: FullMeasurements) -> Self {
+        Self {
+            rtmrs: measurements.rtmrs.into(),
+            key_provider_event_digest: measurements.key_provider_event_digest,
+            app_compose_hash_payload: measurements.app_compose_hash_payload,
         }
     }
 }
