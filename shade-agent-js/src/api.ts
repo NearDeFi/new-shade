@@ -220,7 +220,7 @@ export class ShadeClient {
       args: {
         attestation: contractAttestation,
       },
-      gas: BigInt("250000000000000"), // 250 TGas
+      gas: BigInt("300000000000000"), // 300 TGas
     });
   }
 

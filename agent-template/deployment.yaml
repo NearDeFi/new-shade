@@ -1,5 +1,5 @@
 # environment: local | TEE
-environment: local
+environment: TEE
 
 # network: testnet | mainnet
 network: testnet
@@ -17,7 +17,7 @@ agent_contract:
   # and it's assumed the agent contract is already deployed to the contract_id
   # and is initialized
   deploy_custom:
-    enabled: true
+    enabled: false
     # Amount to fund the agent contract with in NEAR
     funding_amount: 10
     # If true the key for contract account will be deleted after deployment locking it
@@ -55,7 +55,7 @@ agent_contract:
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
-  enabled: true
+  enabled: false
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
   tag: pivortex/my-first-agent
   cache: true
@@ -63,7 +63,7 @@ build_docker_image:
 
 # Optional, if not provided the codehash will not be approved
 approve_codehash:
-  enabled: true
+  enabled: false
   method_name: approve_measurements
   # The <CODEHASH> will automatically be replaced with the appropriate codehash
   # for local it will be set to "not-in-a-tee"
@@ -73,13 +73,13 @@ approve_codehash:
     {
       "measurements": {
         "rtmrs": {
-          "mrtd": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-          "rtmr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-          "rtmr1": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-          "rtmr2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+          "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+          "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+          "rtmr1": "daa9380dc33b14728a9adb222437cf14db2d40ffc4d7061d8f3c329f6c6b339f71486d33521287e8faeae22301f4d815",
+          "rtmr2": "1c41080c9c74be158e55b92f2958129fc1265647324c4a0dc403292cfa41d4c529f39093900347a11c8c1b82ed8c5edf"
         },
-        "key_provider_event_digest": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "app_compose_hash_payload": "0000000000000000000000000000000000000000000000000000000000000000"
+        "key_provider_event_digest": "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c",
+        "app_compose_hash_payload": "ae06c15063384ec9fb4a733591fa0719b0f5a635e27e7a58a52ea2fadca6a12a"
       }
     }
   # tgas: 30
@@ -87,7 +87,7 @@ approve_codehash:
 # Optional, if not provided the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
-  enabled: true
+  enabled: false
   app_name: my-first-agent
   env_file_path: ./.env
 
