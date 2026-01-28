@@ -5,12 +5,11 @@ import { NEAR } from '@near-js/tokens';
 import chalk from 'chalk';
 import bs58 from 'bs58';
 import { getConfig } from '../../utils/config.js';
-import { hasPlaceholder } from '../../utils/placeholders.js';
-import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
-import { getCodehashValueForDeploy } from '../../utils/codehash.js';
+import { replacePlaceholders } from '../../utils/placeholders.js';
 import { tgasToGas } from '../../utils/near.js';
 import { checkTransactionOutcome } from '../../utils/transaction-outcome.js';
 import { getSudoPrefix } from '../../utils/docker-utils.js';
+import { getMeasurements } from '../../utils/measurements.js';
 
 // Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -235,14 +234,11 @@ export async function initContract() {
         const methodName = initCfg.method_name;
 
         // Resolve deployment placeholders in args
-        // For init, we don't need codehash, so pass null
-        const args = resolveDeploymentPlaceholders(
-            initCfg.args,
-            config.accountId,
-            config.deployment.network,
-            config.deployment.environment,
-            null
-        );
+        const replacements = {};
+        replacements['<MASTER_ACCOUNT_ID>'] = config.masterAccount.accountId;
+        replacements['<DEFAULT_MPC_CONTRACT_ID>'] = config.deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
+        replacements['<REQUIRES_TEE>'] = config.deployment.environment === 'TEE';
+        const args = replacePlaceholders(initCfg.args, replacements);
 
         const result = await contractAccount.callFunctionRaw({
             contractId,
@@ -296,36 +292,23 @@ export async function deleteContractKey() {
     }
 }
 
-// Approve the specified codehash based on deployment config
-export async function approveCodehash() {
+// Approve the specified measurements based on deployment config
+export async function approveMeasurements() {
     const config = await getConfig();
     const masterAccount = config.masterAccount;
     const contractId = config.deployment.agent_contract.contract_id;
-    // Approves the specified codehash based on deployment config
-    console.log('Approving the codehash');
+    // Approves the specified measurements based on deployment config
+    console.log('Approving the measurements');
     try {
-        const approveCfg = config.deployment.approve_codehash;
+        const approveCfg = config.deployment.approve_measurements;
 
-        // Resolve codehash placeholder based on environment and docker-compose
-        let args = approveCfg.args;
-
-        // Check if codehash placeholder exists
-        const hasCodehashPlaceholder = hasPlaceholder(approveCfg.args, '<CODEHASH>');
-        const codehashValue = hasCodehashPlaceholder
-            ? getCodehashValueForDeploy(
-                config.deployment,
-                config.deployment.environment === 'TEE' ? config.deployment.docker_compose_path : null
-            )
-            : null;
-
-        // Always resolve deployment placeholders (this also parses JSON strings)
-        args = resolveDeploymentPlaceholders(
-            approveCfg.args,
-            config.accountId,
-            config.deployment.network,
-            config.deployment.environment,
-            codehashValue
-        );
+        // Resolve measurements placeholder in args
+        const replacements = {};
+        const measurements = getMeasurements(config.deployment.environment === 'TEE', config.deployment.docker_compose_path);
+        // Pass the object directly, replacePlaceholders will handle JSON stringification
+        replacements['<MEASUREMENTS>'] = measurements;
+        
+        const args = replacePlaceholders(approveCfg.args, replacements);
 
         const result = await masterAccount.callFunctionRaw({
             contractId,
@@ -338,14 +321,14 @@ export async function approveCodehash() {
         if (result && result.final_execution_outcome) {
             const success = checkTransactionOutcome(result.final_execution_outcome);
             if (!success) {
-                console.log(chalk.red('✗ Failed to approve codehash'));
+                console.log(chalk.red('✗ Failed to approve measurements'));
                 process.exit(1);
             }
         }
         
         await sleep(1000);
     } catch (e) {
-        console.log(chalk.red(`Error approving the codehash: ${e.message}`));
+        console.log(chalk.red(`Error approving the measurements: ${e.message}`));
         process.exit(1);
     }
 }

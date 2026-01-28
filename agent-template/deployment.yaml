@@ -17,7 +17,7 @@ agent_contract:
   # and it's assumed the agent contract is already deployed to the contract_id
   # and is initialized
   deploy_custom:
-    enabled: false
+    enabled: true
     # Amount to fund the agent contract with in NEAR
     funding_amount: 10
     # If true the key for contract account will be deleted after deployment locking it
@@ -46,9 +46,9 @@ agent_contract:
       # The <REQUIRES_TEE> will automatically be selected based on the environment
       args: |
         {
-          "owner_id": "<MASTER_ACCOUNT_ID>",
-          "mpc_contract_id": "<DEFAULT_MPC_CONTRACT_ID>",
-          "requires_tee": "<REQUIRES_TEE>"
+          "owner_id": <MASTER_ACCOUNT_ID>,
+          "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>,
+          "requires_tee": <REQUIRES_TEE>
         }
       # tgas: 30
 
@@ -61,33 +61,24 @@ build_docker_image:
   cache: true
   dockerfile_path: ../Dockerfile
 
-# Optional, if not provided the codehash will not be approved
-approve_codehash:
+# Optional, if not provided the measurements will not be approved
+approve_measurements:
   enabled: true
   method_name: approve_measurements
-  # The <CODEHASH> will automatically be replaced with the appropriate codehash
-  # for local it will be set to "not-in-a-tee"
-  # for TEE and docker disabled it will be set to the existing codehash in your docker-compose file
-  # for TEE and docker enabled it will be set to the codehash of the docker image once it's pushed to the registry
+  # The <MEASUREMENTS> tag will automatically be replaced with calculated measurements
+  # for local it will be set to all zeros
+  # for TEE and docker disabled it will be set to the measurements based on the current docker-compose file
+  # for TEE and docker enabled it will be set to the measurements based on the docker-compose file once it has been updated
   args: |
     {
-      "measurements": {
-        "rtmrs": {
-          "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
-          "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
-          "rtmr1": "daa9380dc33b14728a9adb222437cf14db2d40ffc4d7061d8f3c329f6c6b339f71486d33521287e8faeae22301f4d815",
-          "rtmr2": "1c41080c9c74be158e55b92f2958129fc1265647324c4a0dc403292cfa41d4c529f39093900347a11c8c1b82ed8c5edf"
-        },
-        "key_provider_event_digest": "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c",
-        "app_compose_hash_payload": "a5fc6b82dbd2080f9da508501acf178dedb191e4195384cc57a77b2aac1dcafc"
-      }
+      "measurements": <MEASUREMENTS>
     }
   # tgas: 30
 
 # Optional, if not provided the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
-  enabled: false
+  enabled: true
   app_name: my-first-agent
   env_file_path: ./.env
 
@@ -98,6 +89,6 @@ whitelist_agent:
   # specified when running the "shade-agent-cli whitelist" command
   args: |
     {
-      "account_id": "<AGENT_ACCOUNT_ID>"
+      "account_id": <AGENT_ACCOUNT_ID>
     }
   # tgas: 30
