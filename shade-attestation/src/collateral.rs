@@ -35,9 +35,7 @@ impl Collateral {
         }
 
         fn get_opt_str(v: &Value, key: &str) -> Option<String> {
-            v.get(key)
-                .and_then(Value::as_str)
-                .map(String::from)
+            v.get(key).and_then(Value::as_str).map(String::from)
         }
 
         fn get_hex(v: &Value, key: &str) -> Result<Vec<u8>, CollateralError> {

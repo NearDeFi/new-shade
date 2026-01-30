@@ -1,22 +1,23 @@
+use hex;
 use near_sdk::{
-    env::{self, block_timestamp_ms},
-    near, require, log,
-    store::{IterableMap, IterableSet},
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
+    env::{self, block_timestamp_ms},
+    ext_contract, log, near, require,
+    store::{IterableMap, IterableSet},
 };
+use serde::Serialize;
 use shade_attestation::{
     attestation::DstackAttestation,
     measurements::{FullMeasurements, FullMeasurementsHex},
     report_data::ReportData,
     tcb_info::HexBytes,
 };
-use hex;
 
+mod attestation;
 mod chainsig;
 mod helpers;
 mod update_contract;
 mod views;
-mod attestation;
 
 #[cfg(test)]
 mod unit_tests;
@@ -26,12 +27,12 @@ type Ppid = HexBytes<16>;
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    pub owner_id: AccountId,
-    pub approved_measurements: IterableSet<FullMeasurementsHex>,
-    pub agents: IterableMap<AccountId, Agent>,
     pub requires_tee: bool,
+    pub owner_id: AccountId,
     pub mpc_contract_id: AccountId,
+    pub approved_measurements: IterableSet<FullMeasurementsHex>,
     pub approved_ppids: IterableSet<Ppid>,
+    pub agents: IterableMap<AccountId, Agent>,
     pub whitelisted_agents_for_local: IterableSet<AccountId>,
 }
 
@@ -55,8 +56,8 @@ pub struct AgentView {
 #[near]
 pub enum StorageKey {
     ApprovedMeasurements,
-    Agents,
     ApprovedPpids,
+    Agents,
     WhitelistedAgentsForLocal,
 }
 
@@ -64,14 +65,14 @@ pub enum StorageKey {
 impl Contract {
     #[init]
     #[private]
-    pub fn new(owner_id: AccountId, mpc_contract_id: AccountId, requires_tee: bool) -> Self {
+    pub fn new(requires_tee: bool, owner_id: AccountId, mpc_contract_id: AccountId) -> Self {
         Self {
+            requires_tee,
             owner_id,
             mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
-            requires_tee,
             approved_measurements: IterableSet::new(StorageKey::ApprovedMeasurements),
-            agents: IterableMap::new(StorageKey::Agents),
             approved_ppids: IterableSet::new(StorageKey::ApprovedPpids),
+            agents: IterableMap::new(StorageKey::Agents),
             whitelisted_agents_for_local: IterableSet::new(StorageKey::WhitelistedAgentsForLocal),
         }
     }
@@ -79,15 +80,12 @@ impl Contract {
     // Register an agent, this needs to be called by the agent itself
     // Note agent registration does not implement storage management, you should implement this
     pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
-        // Verify the attestation and get the measurements (and verified PPID; we only store measurements)
-        let (measurements, verified_ppid) = self.verify_attestation(attestation);
+        // Verify the attestation and get the measurements and PPID
+        let (measurements, ppid) = self.verify_attestation(attestation);
 
-        // Register the agent with the measurements
+        // Register the agent
         self.agents
-            .insert(env::predecessor_account_id(), Agent {
-                measurements,
-                ppid: verified_ppid,
-            });
+            .insert(env::predecessor_account_id(), Agent { measurements, ppid });
 
         true
     }
@@ -99,25 +97,13 @@ impl Contract {
         payload: String,
         key_type: String,
     ) -> Promise {
-        // Require the caller to be a registered agent
+        // Require the caller to be a valid agent
         self.require_valid_agent();
 
         self.internal_request_signature(path, payload, key_type)
     }
 
     // Owner methods
-
-    // Add a new measurements to the approved list
-    pub fn approve_measurements(&mut self, measurements: FullMeasurementsHex) {
-        self.require_owner();
-        self.approved_measurements.insert(measurements);
-    }
-
-    // Remove a measurements from the approved list
-    pub fn remove_measurements(&mut self, measurements: FullMeasurementsHex) {
-        self.require_owner();
-        self.approved_measurements.remove(&measurements);
-    }
 
     // Update owner ID
     pub fn update_owner_id(&mut self, owner_id: AccountId) {
@@ -129,6 +115,18 @@ impl Contract {
     pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
         self.require_owner();
         self.mpc_contract_id = mpc_contract_id;
+    }
+
+    // Add a new measurements to the approved list
+    pub fn approve_measurements(&mut self, measurements: FullMeasurementsHex) {
+        self.require_owner();
+        self.approved_measurements.insert(measurements);
+    }
+
+    // Remove a measurements from the approved list
+    pub fn remove_measurements(&mut self, measurements: FullMeasurementsHex) {
+        self.require_owner();
+        self.approved_measurements.remove(&measurements);
     }
 
     // Add one or more PPIDs to the approved list.
@@ -145,6 +143,12 @@ impl Contract {
         for id in ppids {
             self.approved_ppids.remove(&id);
         }
+    }
+
+    // Remove an agent from the approved list.
+    pub fn remove_agent(&mut self, account_id: AccountId) {
+        self.require_owner();
+        self.agents.remove(&account_id);
     }
 
     // Local only functions

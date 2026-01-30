@@ -12,7 +12,7 @@ impl Contract {
         self.approved_ppids.iter().cloned().collect()
     }
 
-    // Get the list of approved measurements (with optional pagination)
+    // Get the list of approved measurements
     pub fn get_approved_measurements(
         &self,
         from_index: &Option<u32>,
@@ -40,7 +40,7 @@ impl Contract {
         })
     }
 
-    // Get the list of registered agents and their details (with optional pagination)
+    // Get the list of registered agents and their details
     pub fn get_agents(&self, from_index: &Option<u32>, limit: &Option<u32>) -> Vec<AgentView> {
         let from = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(self.agents.len() as u32);

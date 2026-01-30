@@ -1,6 +1,4 @@
 use crate::*;
-use near_sdk::ext_contract;
-use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub enum Payload {
@@ -21,7 +19,7 @@ trait MPCContract {
     fn sign(&self, request: SignRequest);
 }
 
-const GAS: Gas = Gas::from_tgas(10);
+const GAS: Gas = Gas::from_tgas(15);
 const ATTACHED_DEPOSIT: NearToken = NearToken::from_yoctonear(1);
 
 #[near]

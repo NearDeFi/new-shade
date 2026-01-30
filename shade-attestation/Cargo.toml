@@ -1,11 +1,10 @@
 [package]
 name = "shade-attestation"
-version = "3.3.2"
+version = "0.1.0"
 edition = "2024"
 license = "MIT"
 
 [dependencies]
-# Core dependencies
 borsh = { version = "1.6.0", features = ["derive"] }
 dcap-qvl = { version = "0.3.11", default-features = false, features = ["contract", "borsh", "std", "ring"] }
 derive_more = { version = "2.0.1", features = ["from", "deref", "into", "as_ref", "constructor"] }
@@ -23,5 +22,3 @@ getrandom = { version = "0.2", features = ["custom"] }
 
 [dev-dependencies]
 rstest = "0.25.0"
-# Note: test-utils dependency removed - tests will need to be updated
-# or you can inline the test data from test-utils

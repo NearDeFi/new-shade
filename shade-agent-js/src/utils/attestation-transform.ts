@@ -148,41 +148,38 @@ export function attestationForContract(
 }
 
 /**
- * Creates a fake/empty DstackAttestation structure with all empty or zero values.
- * This is used when not running in a TEE environment.
- * The contract will accept this if requires_tee is false, or reject it if requires_tee is true.
- * @returns DstackAttestation with all empty/zero values
+ * Creates a fake/empty DstackAttestation structure for non-TEE (requires_tee = false).
+ * Collateral and quote are empty; TcbInfo uses zero-filled hex so the contract can deserialize
+ * (HexBytes<N> requires exactly 2*N hex chars).
+ * @returns DstackAttestation acceptable by the contract when requires_tee is false
  */
 export function getFakeAttestation(): DstackAttestation {
-  // Zero-filled hex strings for required lengths:
-  // - 48 bytes = 96 hex characters (for mrtd, rtmr0-3)
-  // - 32 bytes = 64 hex characters (for compose_hash, device_id, signatures)
-  const ZERO_48_BYTES_HEX = "0".repeat(96); // 48 bytes as hex
-  const ZERO_32_BYTES_HEX = "0".repeat(64); // 32 bytes as hex
+  // TcbInfo fixed-size fields must be valid hex of the right length for contract deserialization
+  const ZERO_48_HEX = "0".repeat(96); // 48 bytes
+  const ZERO_32_HEX = "0".repeat(64); // 32 bytes
 
   return {
-    quote: [], // empty array
+    quote: [],
     collateral: {
       pck_crl_issuer_chain: "",
-      root_ca_crl: [], // Empty array - will be converted to hex string before sending
-      pck_crl: [], // Empty array - will be converted to hex string before sending
+      root_ca_crl: [],
+      pck_crl: [],
       tcb_info_issuer_chain: "",
       tcb_info: "",
-      // For signatures, use zero-filled arrays that match expected length (32 bytes = 64 hex chars)
-      tcb_info_signature: new Array(32).fill(0), // 32 bytes of zeros
+      tcb_info_signature: [],
       qe_identity_issuer_chain: "",
       qe_identity: "",
-      qe_identity_signature: new Array(32).fill(0), // 32 bytes of zeros
+      qe_identity_signature: [],
     },
     tcb_info: {
-      mrtd: ZERO_48_BYTES_HEX, // 48 bytes (96 hex chars)
-      rtmr0: ZERO_48_BYTES_HEX, // 48 bytes (96 hex chars)
-      rtmr1: ZERO_48_BYTES_HEX, // 48 bytes (96 hex chars)
-      rtmr2: ZERO_48_BYTES_HEX, // 48 bytes (96 hex chars)
-      rtmr3: ZERO_48_BYTES_HEX, // 48 bytes (96 hex chars)
-      os_image_hash: "", // Optional field, empty string will be converted to None in Rust
-      compose_hash: ZERO_32_BYTES_HEX, // 32 bytes (64 hex chars)
-      device_id: ZERO_32_BYTES_HEX, // 32 bytes (64 hex chars)
+      mrtd: ZERO_48_HEX,
+      rtmr0: ZERO_48_HEX,
+      rtmr1: ZERO_48_HEX,
+      rtmr2: ZERO_48_HEX,
+      rtmr3: ZERO_48_HEX,
+      os_image_hash: "",
+      compose_hash: ZERO_32_HEX,
+      device_id: ZERO_32_HEX,
       app_compose: "",
       event_log: [],
     },

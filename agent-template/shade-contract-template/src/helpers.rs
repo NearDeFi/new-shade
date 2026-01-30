@@ -11,15 +11,17 @@ impl Contract {
     }
 
     // Require the caller to be a valid agent (has approved measurements and PPID)
+    // Just because an agent is registered does not mean it is valid
+    // it needs to have current approved measurements and PPID
     pub(crate) fn require_valid_agent(&mut self) {
         // If in local mode additionally check that the agent is whitelisted
         if !self.requires_tee {
             require!(
-                self.whitelisted_agents_for_local.contains(&env::predecessor_account_id()),
+                self.whitelisted_agents_for_local
+                    .contains(&env::predecessor_account_id()),
                 "Agent needs to be whitelisted for local mode"
             );
         }
-        // Get the agent and check that it is registered with approved measurements and PPID
         let agent = self
             .get_agent(env::predecessor_account_id())
             .expect("Agent not registered");

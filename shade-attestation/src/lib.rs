@@ -4,9 +4,10 @@
 extern crate alloc;
 
 // dcap-qvl requires getrandom but NEAR vm doesn't support it
+// error if randomness is called
 #[cfg(target_arch = "wasm32")]
 mod wasm_getrandom {
-    use getrandom::{register_custom_getrandom, Error};
+    use getrandom::{Error, register_custom_getrandom};
 
     fn randomness_unsupported(_: &mut [u8]) -> Result<(), Error> {
         Err(Error::UNSUPPORTED)

@@ -12,6 +12,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use serde_json::json;
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::fmt;
 use dcap_qvl::verify::VerifiedReport;
@@ -112,6 +113,42 @@ impl fmt::Debug for DstackAttestation {
     }
 }
 
+impl Default for DstackAttestation {
+    /// Produces a valid dummy attestation for unit tests (e.g. when `requires_tee = false`).
+    fn default() -> Self {
+        let collateral_json = json!({
+            "tcb_info_issuer_chain": "",
+            "tcb_info": "",
+            "tcb_info_signature": "",
+            "qe_identity_issuer_chain": "",
+            "qe_identity": "",
+            "qe_identity_signature": "",
+            "pck_crl_issuer_chain": "",
+            "root_ca_crl": "",
+            "pck_crl": ""
+        });
+        let collateral =
+            Collateral::try_from_json(collateral_json).expect("default collateral is valid");
+        let tcb_info = TcbInfo {
+            mrtd: HexBytes::default(),
+            rtmr0: HexBytes::default(),
+            rtmr1: HexBytes::default(),
+            rtmr2: HexBytes::default(),
+            rtmr3: HexBytes::default(),
+            os_image_hash: None,
+            compose_hash: HexBytes::default(),
+            device_id: HexBytes::default(),
+            app_compose: String::new(),
+            event_log: Vec::new(),
+        };
+        DstackAttestation::new(
+            QuoteBytes::from(Vec::new()),
+            collateral,
+            tcb_info,
+        )
+    }
+}
+
 impl DstackAttestation {
     /// Checks whether this attestation is valid
     /// with respect to expected values of:
@@ -120,7 +157,8 @@ impl DstackAttestation {
     /// - accepted_measurements: set of accepted RTMRs and key-provider event digest.
     ///   If any element in the set is valid, the function accepts the attestation as
     ///   valid.
-    /// 
+    /// - accepted_ppids: set of accepted PPIDs. PPID in the attestation must match one of the allowed PPIDs.
+    ///
     /// Returns the `FullMeasurements` that matched and the verified PPID if verification succeeds.
     pub fn verify(
         &self,
@@ -146,7 +184,8 @@ impl DstackAttestation {
         self.verify_rtmr3(report_data, &self.tcb_info)?;
         self.verify_app_compose(&self.tcb_info)?;
 
-        let measurements = self.verify_any_measurements(report_data, &self.tcb_info, accepted_measurements)?;
+        let measurements =
+            self.verify_any_measurements(report_data, &self.tcb_info, accepted_measurements)?;
         Ok((measurements, ppid))
     }
 
@@ -246,9 +285,7 @@ impl DstackAttestation {
         expected: &ReportData,
         actual: &dcap_qvl::quote::TDReport10,
     ) -> Result<(), VerificationError> {
-        // Check if sha384(tls_public_key) matches the hash in report_data. This check effectively
-        // proves that tls_public_key was included in the quote's report_data by an app running
-        // inside a TDX enclave.
+        // Check the report data from the report matches the expected report data.
         compare_hashes("report_data", &actual.report_data, &expected.to_bytes())
     }
 
@@ -276,7 +313,7 @@ impl DstackAttestation {
         Ok(ppid_hex_bytes)
     }
 
-    /// Try to verify static RTMRs and key_provider_digest against multiple expected measurement sets.
+    /// Try to verify static RTMRs, key_provider_digest and app_compose_hash against multiple expected measurement sets.
     /// Returns the matching `ExpectedMeasurements` if any set matches; otherwise, returns a WrongHash error.
     fn verify_any_measurements(
         &self,
@@ -370,10 +407,10 @@ impl DstackAttestation {
         Self::verify_event_log_rtmr3(&tcb_info.event_log, report_data.rt_mr3)
     }
 
-    /// Verifies app compose configuration and hash. The compose-hash is measured into RTMR3, and
-    /// since it's (roughly) a hash of the unmeasured docker_compose_file, this is sufficient to
-    /// prove its validity.
+    /// Verifies the app compose hash from RTMR3 event matches the one in TCB info.
+    /// and that the app compose hashed in the tcb info matches the hashes provided
     fn verify_app_compose(&self, tcb_info: &TcbInfo) -> Result<(), VerificationError> {
+        // Allow any app compose configuration as long as the hash matches (in verify_app_compose_hash)
         // let app_compose: AppCompose = serde_json::from_str(&tcb_info.app_compose)
         //     .map_err(|e| VerificationError::AppComposeParsing(e.to_string()))?;
 
@@ -421,7 +458,7 @@ impl DstackAttestation {
         )
     }
 
-    /// Verifies app compose hash in tcb info matches the expected hash.
+    /// Verifies app compose hash in tcb info matches the expected hash in the FullMeasurements.
     fn verify_app_compose_hash(
         &self,
         tcb_info: &TcbInfo,

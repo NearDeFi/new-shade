@@ -3159,7 +3159,7 @@ dependencies = [
 
 [[package]]
 name = "shade-attestation"
-version = "3.3.2"
+version = "0.1.0"
 dependencies = [
  "borsh",
  "dcap-qvl",
@@ -3181,9 +3181,11 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "near-api",
+ "near-api-types",
  "near-sandbox",
  "near-sdk",
  "serde",
+ "serde_json",
  "shade-attestation",
  "tokio",
 ]

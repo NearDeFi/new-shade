@@ -1,8 +1,8 @@
+use crate::tcb_info::HexBytes;
 use alloc::string::String;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use serde_with::{Bytes, serde_as};
-use crate::tcb_info::HexBytes;
 
 /// Required measurements for TEE attestation verification (a.k.a. RTMRs checks). These values
 /// define the trusted baseline that TEE environments must match during verification. They
@@ -57,7 +57,19 @@ pub struct FullMeasurements {
 
 /// Hex-compatible version of Measurements that deserializes from hex strings.
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct MeasurementsHex {
     /// MRTD (Measurement of Root of Trust for Data) - identifies the virtual firmware.
     pub mrtd: HexBytes<48>,
@@ -106,7 +118,19 @@ impl From<Measurements> for MeasurementsHex {
 
 /// Hex-compatible version of FullMeasurements that deserializes from hex strings.
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct FullMeasurementsHex {
     /// Expected RTMRs (Runtime Measurement Registers).
     pub rtmrs: MeasurementsHex,
