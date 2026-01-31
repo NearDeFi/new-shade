@@ -99,7 +99,7 @@ deploy_to_phala:
 whitelist_agent_for_local:
   method_name: whitelist_agent_for_local
   # The <AGENT_ACCOUNT_ID> will automatically be replaced with the agent account id
-  # specified when running the "shade-agent-cli whitelist_agent_for_local" command
+  # specified when running the "shade whitelist" command
   args: |
     {
       "account_id": <AGENT_ACCOUNT_ID>
