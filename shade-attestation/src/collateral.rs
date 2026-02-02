@@ -34,10 +34,6 @@ impl Collateral {
                 .ok_or_else(|| CollateralError::MissingField(String::from(key)))
         }
 
-        fn get_opt_str(v: &Value, key: &str) -> Option<String> {
-            v.get(key).and_then(Value::as_str).map(String::from)
-        }
-
         fn get_hex(v: &Value, key: &str) -> Result<Vec<u8>, CollateralError> {
             let hex_str = get_str(v, key)?;
             hex::decode(hex_str).map_err(|source| CollateralError::HexDecode {
@@ -53,8 +49,7 @@ impl Collateral {
             qe_identity_issuer_chain: get_str(&v, "qe_identity_issuer_chain")?,
             qe_identity: get_str(&v, "qe_identity")?,
             qe_identity_signature: get_hex(&v, "qe_identity_signature")?,
-            pck_certificate_chain: get_opt_str(&v, "pck_certificate_chain"),
-            pck_crl_issuer_chain: get_str(&v, "pck_crl_issuer_chain")?,
+            pck_certificate_chain: get_str(&v, "pck_certificate_chain").ok(),            pck_crl_issuer_chain: get_str(&v, "pck_crl_issuer_chain")?,
             root_ca_crl: get_hex(&v, "root_ca_crl")?,
             pck_crl: get_hex(&v, "pck_crl")?,
         };

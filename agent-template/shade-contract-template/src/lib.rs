@@ -1,11 +1,3 @@
-// Presume that attestation.verify method has no vulnerabilities 
-
-// Main things to look for in this project is
-// - An agent cannot register in tee mode if it doesnt have a correct attestation. 
-// - An agent cannot call the request_signature function if it doesnt have a currently approved ppid and measurements
-// - The same as the two above for local but it also requires it to be whitelisted 
-
-
 use hex;
 use near_sdk::{
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
@@ -134,7 +126,10 @@ impl Contract {
     // Remove a measurements from the approved list
     pub fn remove_measurements(&mut self, measurements: FullMeasurementsHex) {
         self.require_owner();
-        self.approved_measurements.remove(&measurements);
+        require!(
+            self.approved_measurements.remove(&measurements),
+            "Measurements not in approved list"
+        );
     }
 
     // Add one or more PPIDs to the approved list.
@@ -149,14 +144,20 @@ impl Contract {
     pub fn remove_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
         self.require_owner();
         for id in ppids {
-            self.approved_ppids.remove(&id);
+            require!(
+                self.approved_ppids.remove(&id),
+                "PPID not in approved list"
+            );
         }
     }
 
     // Remove an agent from the approved list.
     pub fn remove_agent(&mut self, account_id: AccountId) {
         self.require_owner();
-        self.agents.remove(&account_id);
+        require!(
+            self.agents.remove(&account_id).is_some(),
+            "Agent not registered"
+        );
     }
 
     // Local only functions
@@ -177,6 +178,9 @@ impl Contract {
             panic!("Removing agents is not supported for TEE");
         }
         self.require_owner();
-        self.whitelisted_agents_for_local.remove(&account_id);
+        require!(
+            self.whitelisted_agents_for_local.remove(&account_id),
+            "Agent not in whitelist for local"
+        );
     }
 }

@@ -32,8 +32,11 @@ impl Contract {
     ) -> Promise {
         // Convert the payload to the correct type
         let (payload_v2, domain_id) = match key_type.as_str() {
+            "Ecdsa" => (Payload::Ecdsa(payload), 0),
             "Eddsa" => (Payload::Eddsa(payload), 1),
-            _ => (Payload::Ecdsa(payload), 0),
+            _ => {
+                panic!("Invalid key type");
+            }
         };
 
         // Create the request

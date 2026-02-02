@@ -1,7 +1,11 @@
 use crate::*;
 use near_sdk::test_utils::{VMContextBuilder, accounts};
 use near_sdk::testing_env;
-use shade_attestation::{attestation::DstackAttestation, measurements::FullMeasurementsHex};
+use shade_attestation::{
+    attestation::DstackAttestation,
+    measurements::{FullMeasurementsHex, MeasurementsHex},
+    tcb_info::HexBytes,
+};
 
 // Only testing requires_tee = false since we cannot produce a valid attestation for a TEE in unit tests
 
@@ -14,6 +18,27 @@ fn get_context(predecessor: AccountId, is_view: bool) -> VMContextBuilder {
         .predecessor_account_id(predecessor)
         .is_view(is_view);
     builder
+}
+
+/// Returns measurements that differ from default (one byte different in mrtd).
+fn non_default_measurements() -> FullMeasurementsHex {
+    let mut mrtd = [0u8; 48];
+    mrtd[0] = 1;
+    FullMeasurementsHex {
+        rtmrs: MeasurementsHex {
+            mrtd: HexBytes::from(mrtd),
+            rtmr0: HexBytes::from([0; 48]),
+            rtmr1: HexBytes::from([0; 48]),
+            rtmr2: HexBytes::from([0; 48]),
+        },
+        key_provider_event_digest: HexBytes::from([0; 48]),
+        app_compose_hash_payload: HexBytes::from([0; 32]),
+    }
+}
+
+/// Returns PPID that differs from default (all zeros).
+fn non_default_ppid() -> Ppid {
+    HexBytes::from([1u8; 16])
 }
 
 // Helper function to initialize contract (with default measurements and PPID approved for local mode)
@@ -106,6 +131,24 @@ fn test_remove_measurements_not_owner() {
     contract.remove_measurements(FullMeasurementsHex::default());
 }
 
+// Test that remove_measurements panics when measurements are not in the approved list
+#[test]
+#[should_panic(expected = "Measurements not in approved list")]
+fn test_remove_measurements_not_found() {
+    let mut contract = setup_contract();
+    // Try to remove measurements that were never approved
+    contract.remove_measurements(non_default_measurements());
+}
+
+// Test that remove_ppids panics when PPID is not in the approved list
+#[test]
+#[should_panic(expected = "PPID not in approved list")]
+fn test_remove_ppids_not_found() {
+    let mut contract = setup_contract();
+    // Try to remove PPID that was never approved
+    contract.remove_ppids(vec![non_default_ppid()]);
+}
+
 // Test that owner can whitelist an agent for local and agent appears in whitelist (not yet registered)
 #[test]
 fn test_whitelist_agent() {
@@ -176,6 +219,16 @@ fn test_whitelist_agent_not_owner() {
     contract.whitelist_agent_for_local(agent);
 }
 
+// Test that remove_agent_for_local panics when agent is not in the whitelist
+#[test]
+#[should_panic(expected = "Agent not in whitelist for local")]
+fn test_remove_agent_for_local_not_found() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+    // Agent was never whitelisted
+    contract.remove_agent_for_local(agent);
+}
+
 // Test that owner can remove an agent from the whitelist (local)
 #[test]
 fn test_remove_agent_from_whitelist() {
@@ -220,6 +273,16 @@ fn test_remove_agent() {
     testing_env!(context.build());
     contract.remove_agent(agent.clone());
     assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that remove_agent panics when agent is not registered
+#[test]
+#[should_panic(expected = "Agent not registered")]
+fn test_remove_agent_not_found() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+    // Agent was never registered
+    contract.remove_agent(agent);
 }
 
 // Test that non-owner cannot remove a registered agent
@@ -599,5 +662,27 @@ fn test_request_signature_with_eddsa() {
         "path".to_string(),
         "payload".to_string(),
         "Eddsa".to_string(),
+    );
+}
+
+// Test that request_signature panics when key_type is not exactly "Ecdsa" or "Eddsa"
+#[test]
+#[should_panic(expected = "Invalid key type")]
+fn test_request_signature_invalid_key_type() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    let context = get_context(agent.clone(), false);
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    let context = get_context(agent, false);
+    testing_env!(context.build());
+    let _ = contract.request_signature(
+        "path".to_string(),
+        "payload".to_string(),
+        "invalid".to_string(),
     );
 }
