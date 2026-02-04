@@ -214,7 +214,8 @@ pub async fn deploy_contract_default(
 /// Uses the same type as the contract so serialization matches exactly.
 #[allow(dead_code)]
 pub fn default_measurements_json() -> serde_json::Value {
-    serde_json::to_value(FullMeasurementsHex::default()).expect("FullMeasurementsHex::default() serializes")
+    serde_json::to_value(FullMeasurementsHex::default())
+        .expect("FullMeasurementsHex::default() serializes")
 }
 
 /// Args for approve_measurements with default measurements (parameter name required by contract).

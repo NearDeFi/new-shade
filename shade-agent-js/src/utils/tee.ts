@@ -36,7 +36,7 @@ export interface TcbInfo {
   rtmr1: string;
   rtmr2: string;
   rtmr3: string;
-  os_image_hash: string; 
+  os_image_hash: string;
   compose_hash: string;
   device_id: string;
   app_compose: string;

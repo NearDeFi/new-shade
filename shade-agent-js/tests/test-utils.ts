@@ -1,20 +1,20 @@
-import { generateSeedPhrase } from 'near-seed-phrase';
-import { createHash } from 'crypto';
-import { vi } from 'vitest';
-import { createMockAccount } from './mocks';
-import type { DstackAttestation } from '../src/utils/tee';
-import type { DstackAttestationForContract } from '../src/utils/attestation-transform';
+import { generateSeedPhrase } from "near-seed-phrase";
+import { createHash } from "crypto";
+import { vi } from "vitest";
+import { createMockAccount } from "./mocks";
+import type { DstackAttestation } from "../src/utils/tee";
+import type { DstackAttestationForContract } from "../src/utils/attestation-transform";
 
 // Generates a valid ed25519 test key from a seed string
 export function generateTestKey(seed: string): string {
-  const hash = createHash('sha256').update(Buffer.from(seed)).digest();
+  const hash = createHash("sha256").update(Buffer.from(seed)).digest();
   const seedInfo = generateSeedPhrase(hash);
   return seedInfo.secretKey;
 }
 
 // Helper to create a mock behavior function that can handle both function and value inputs
 export function createMockBehavior(behavior: any): ReturnType<typeof vi.fn> {
-  if (typeof behavior === 'function') {
+  if (typeof behavior === "function") {
     return behavior();
   }
   return vi.fn().mockResolvedValue(behavior);
@@ -23,52 +23,58 @@ export function createMockBehavior(behavior: any): ReturnType<typeof vi.fn> {
 // Helper to set mock behavior on a provider's sendTransaction method
 export function setSendTransactionBehavior(
   mockAccount: any,
-  behavior: any
+  behavior: any,
 ): void {
-  if (typeof behavior === 'function') {
+  if (typeof behavior === "function") {
     const mockFn = behavior();
-    (mockAccount.provider.sendTransaction as ReturnType<typeof vi.fn>).mockImplementation(mockFn);
+    (
+      mockAccount.provider.sendTransaction as ReturnType<typeof vi.fn>
+    ).mockImplementation(mockFn);
   } else {
-    (mockAccount.provider.sendTransaction as ReturnType<typeof vi.fn>).mockResolvedValue(behavior);
+    (
+      mockAccount.provider.sendTransaction as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(behavior);
   }
 }
 
 // Helper to create a mock account with a specific access key list
 export function createMockAccountWithKeys(keys: Array<{ public_key: string }>) {
   const mockAccount = createMockAccount();
-  (mockAccount.getAccessKeyList as ReturnType<typeof vi.fn>).mockResolvedValue({ keys });
+  (mockAccount.getAccessKeyList as ReturnType<typeof vi.fn>).mockResolvedValue({
+    keys,
+  });
   return mockAccount;
 }
 
 // Creates a mock DstackAttestation for testing (internal format with byte arrays)
 // Allows overriding specific fields while providing defaults for the rest
 export function createMockAttestation(
-  overrides?: Partial<DstackAttestation>
+  overrides?: Partial<DstackAttestation>,
 ): DstackAttestation {
   return {
     quote: overrides?.quote ?? [],
     collateral: {
-      pck_crl_issuer_chain: '',
+      pck_crl_issuer_chain: "",
       root_ca_crl: [],
       pck_crl: [],
-      tcb_info_issuer_chain: '',
-      tcb_info: '',
+      tcb_info_issuer_chain: "",
+      tcb_info: "",
       tcb_info_signature: [],
-      qe_identity_issuer_chain: '',
-      qe_identity: '',
+      qe_identity_issuer_chain: "",
+      qe_identity: "",
       qe_identity_signature: [],
       ...overrides?.collateral,
     },
     tcb_info: {
-      mrtd: '',
-      rtmr0: '',
-      rtmr1: '',
-      rtmr2: '',
-      rtmr3: '',
-      os_image_hash: '',
-      compose_hash: '',
-      device_id: '',
-      app_compose: '',
+      mrtd: "",
+      rtmr0: "",
+      rtmr1: "",
+      rtmr2: "",
+      rtmr3: "",
+      os_image_hash: "",
+      compose_hash: "",
+      device_id: "",
+      app_compose: "",
       event_log: [],
       ...overrides?.tcb_info,
     },
@@ -78,32 +84,32 @@ export function createMockAttestation(
 // Creates a mock DstackAttestationForContract for testing (contract format with hex strings)
 // Allows overriding specific fields while providing defaults for the rest
 export function createMockContractAttestation(
-  overrides?: Partial<DstackAttestationForContract>
+  overrides?: Partial<DstackAttestationForContract>,
 ): DstackAttestationForContract {
   return {
     quote: overrides?.quote ?? [],
     collateral: {
-      pck_crl_issuer_chain: '',
-      root_ca_crl: '', // hex string
-      pck_crl: '', // hex string
-      tcb_info_issuer_chain: '',
-      tcb_info: '',
-      tcb_info_signature: '', // hex string
-      qe_identity_issuer_chain: '',
-      qe_identity: '',
-      qe_identity_signature: '', // hex string
+      pck_crl_issuer_chain: "",
+      root_ca_crl: "", // hex string
+      pck_crl: "", // hex string
+      tcb_info_issuer_chain: "",
+      tcb_info: "",
+      tcb_info_signature: "", // hex string
+      qe_identity_issuer_chain: "",
+      qe_identity: "",
+      qe_identity_signature: "", // hex string
       ...overrides?.collateral,
     },
     tcb_info: {
-      mrtd: '',
-      rtmr0: '',
-      rtmr1: '',
-      rtmr2: '',
-      rtmr3: '',
-      os_image_hash: '',
-      compose_hash: '',
-      device_id: '',
-      app_compose: '',
+      mrtd: "",
+      rtmr0: "",
+      rtmr1: "",
+      rtmr2: "",
+      rtmr3: "",
+      os_image_hash: "",
+      compose_hash: "",
+      device_id: "",
+      app_compose: "",
       event_log: [],
       ...overrides?.tcb_info,
     },

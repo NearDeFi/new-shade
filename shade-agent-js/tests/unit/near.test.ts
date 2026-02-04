@@ -1,17 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createDefaultProvider,
   createAccountObject,
   internalFundAgent,
   addKeysToAccount,
   removeKeysFromAccount,
-} from '../../src/utils/near';
-import { createMockProvider, createMockAccount, createMockSigner } from '../mocks';
-import { JsonRpcProvider } from '@near-js/providers';
-import { NEAR } from '@near-js/tokens';
-import { generateTestKey, createMockBehavior, setSendTransactionBehavior } from '../test-utils';
+} from "../../src/utils/near";
+import {
+  createMockProvider,
+  createMockAccount,
+  createMockSigner,
+} from "../mocks";
+import { JsonRpcProvider } from "@near-js/providers";
+import { NEAR } from "@near-js/tokens";
+import {
+  generateTestKey,
+  createMockBehavior,
+  setSendTransactionBehavior,
+} from "../test-utils";
 
-vi.mock('@near-js/providers', () => ({
+vi.mock("@near-js/providers", () => ({
   JsonRpcProvider: vi.fn(),
 }));
 
@@ -21,21 +29,28 @@ const accountMockOverrides = {
   createSignedTransaction: null as any,
 };
 
-vi.mock('@near-js/accounts', () => {
-  const MockAccount = vi.fn(function(this: any, accountId: string, provider: any, signer?: any) {
+vi.mock("@near-js/accounts", () => {
+  const MockAccount = vi.fn(function (
+    this: any,
+    accountId: string,
+    provider: any,
+    signer?: any,
+  ) {
     const mockAccount = createMockAccount();
     this.accountId = accountId;
     this.provider = provider;
     this.signer = signer;
     // Use override if set, otherwise use default from mockAccount
     this.transfer = accountMockOverrides.transfer || mockAccount.transfer;
-    this.createSignedTransaction = accountMockOverrides.createSignedTransaction || mockAccount.createSignedTransaction;
+    this.createSignedTransaction =
+      accountMockOverrides.createSignedTransaction ||
+      mockAccount.createSignedTransaction;
     return this;
   });
   return { Account: MockAccount };
 });
 
-describe('near utils', () => {
+describe("near utils", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     accountMockOverrides.transfer = null;
@@ -46,9 +61,9 @@ describe('near utils', () => {
   function setupFundAgentMocks(transferBehavior: any) {
     const mockProvider = createMockProvider();
     const mockTransfer = createMockBehavior(transferBehavior);
-    
+
     accountMockOverrides.transfer = mockTransfer;
-        
+
     return { mockProvider, mockTransfer };
   }
 
@@ -57,342 +72,359 @@ describe('near utils', () => {
     const mockAccount = createMockAccount();
     const mockTx = {};
 
-    
-    (mockAccount.createSignedTransaction as ReturnType<typeof vi.fn>).mockResolvedValue(mockTx);
-    
+    (
+      mockAccount.createSignedTransaction as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(mockTx);
+
     return {
       mockAccount: mockAccount as any,
       mockTx,
-      setSendTransactionBehavior: (behavior: any) => setSendTransactionBehavior(mockAccount, behavior)
+      setSendTransactionBehavior: (behavior: any) =>
+        setSendTransactionBehavior(mockAccount, behavior),
     };
   }
 
-  describe('createDefaultProvider', () => {
-    it('should create provider for testnet', () => {
-      const provider = createDefaultProvider('testnet');
+  describe("createDefaultProvider", () => {
+    it("should create provider for testnet", () => {
+      const provider = createDefaultProvider("testnet");
       expect(JsonRpcProvider).toHaveBeenCalledWith(
-        { url: 'https://test.rpc.fastnear.com' },
-        { retries: 3, backoff: 2, wait: 1000 }
+        { url: "https://test.rpc.fastnear.com" },
+        { retries: 3, backoff: 2, wait: 1000 },
       );
       expect(provider).toBeDefined();
     });
 
-    it('should create provider for mainnet', () => {
-      const provider = createDefaultProvider('mainnet');
+    it("should create provider for mainnet", () => {
+      const provider = createDefaultProvider("mainnet");
       expect(JsonRpcProvider).toHaveBeenCalledWith(
-        { url: 'https://free.rpc.fastnear.com' },
-        { retries: 3, backoff: 2, wait: 1000 }
+        { url: "https://free.rpc.fastnear.com" },
+        { retries: 3, backoff: 2, wait: 1000 },
       );
       expect(provider).toBeDefined();
     });
   });
 
-  describe('createAccountObject', () => {
-    it('should create Account without signer', () => {
+  describe("createAccountObject", () => {
+    it("should create Account without signer", () => {
       const mockProvider = createMockProvider();
-      const account = createAccountObject('test.testnet', mockProvider);
-      
+      const account = createAccountObject("test.testnet", mockProvider);
+
       expect(account).toBeDefined();
-      expect(account.accountId).toBe('test.testnet');
+      expect(account.accountId).toBe("test.testnet");
     });
 
-    it('should create Account with signer', () => {
+    it("should create Account with signer", () => {
       const mockProvider = createMockProvider();
       const mockSigner = createMockSigner();
-      const account = createAccountObject('test.testnet', mockProvider, mockSigner);
-      
+      const account = createAccountObject(
+        "test.testnet",
+        mockProvider,
+        mockSigner,
+      );
+
       expect(account).toBeDefined();
-      expect(account.accountId).toBe('test.testnet');
+      expect(account.accountId).toBe("test.testnet");
     });
   });
 
-  describe('internalFundAgent', () => {
-    it('should successfully transfer NEAR on first attempt', async () => {
+  describe("internalFundAgent", () => {
+    it("should successfully transfer NEAR on first attempt", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks({
-        status: { SuccessValue: '' },
+        status: { SuccessValue: "" },
       });
 
-      const sponsorKey = generateTestKey('sponsor-key');
+      const sponsorKey = generateTestKey("sponsor-key");
       await internalFundAgent(
-        'agent.testnet',
-        'sponsor.testnet',
+        "agent.testnet",
+        "sponsor.testnet",
         sponsorKey,
         1.5,
-        mockProvider
+        mockProvider,
       );
 
       expect(mockTransfer).toHaveBeenCalledWith({
         token: NEAR,
         amount: NEAR.toUnits(1.5),
-        receiverId: 'agent.testnet',
+        receiverId: "agent.testnet",
       });
     });
 
-    it('should retry on failure and succeed on second attempt', async () => {
-      const { mockProvider, mockTransfer } = setupFundAgentMocks(() => 
-        vi.fn()
-          .mockRejectedValueOnce(new Error('Network error'))
-          .mockResolvedValueOnce({ status: { SuccessValue: '' } })
+    it("should retry on failure and succeed on second attempt", async () => {
+      const { mockProvider, mockTransfer } = setupFundAgentMocks(() =>
+        vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Network error"))
+          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
       );
 
-      const sponsorKey = generateTestKey('sponsor-key');
+      const sponsorKey = generateTestKey("sponsor-key");
       await internalFundAgent(
-        'agent.testnet',
-        'sponsor.testnet',
+        "agent.testnet",
+        "sponsor.testnet",
         sponsorKey,
         2.0,
-        mockProvider
+        mockProvider,
       );
 
       expect(mockTransfer).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw error after all retries exhausted', async () => {
+    it("should throw error after all retries exhausted", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks(() =>
-        vi.fn().mockRejectedValue(new Error('Network error'))
+        vi.fn().mockRejectedValue(new Error("Network error")),
       );
 
-      const sponsorKey = generateTestKey('sponsor-key');
+      const sponsorKey = generateTestKey("sponsor-key");
       await expect(
         internalFundAgent(
-          'agent.testnet',
-          'sponsor.testnet',
+          "agent.testnet",
+          "sponsor.testnet",
           sponsorKey,
           1.0,
-          mockProvider
-        )
-      ).rejects.toThrow('Failed to fund agent account agent.testnet');
+          mockProvider,
+        ),
+      ).rejects.toThrow("Failed to fund agent account agent.testnet");
 
       expect(mockTransfer).toHaveBeenCalledTimes(3);
     });
 
-    it('should handle non-Error exceptions after all retries exhausted', async () => {
+    it("should handle non-Error exceptions after all retries exhausted", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks(() =>
-        vi.fn().mockRejectedValue('String error')
+        vi.fn().mockRejectedValue("String error"),
       );
 
-      const sponsorKey = generateTestKey('sponsor-key');
+      const sponsorKey = generateTestKey("sponsor-key");
       await expect(
         internalFundAgent(
-          'agent.testnet',
-          'sponsor.testnet',
+          "agent.testnet",
+          "sponsor.testnet",
           sponsorKey,
           1.0,
-          mockProvider
-        )
-      ).rejects.toThrow('Failed to fund agent account agent.testnet');
+          mockProvider,
+        ),
+      ).rejects.toThrow("Failed to fund agent account agent.testnet");
 
       expect(mockTransfer).toHaveBeenCalledTimes(3);
     });
 
-    it('should throw error with error_type after retries when no error_message', async () => {
+    it("should throw error with error_type after retries when no error_message", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks({
-        status: { Failure: { error_type: 'TypeOnlyError' } },
+        status: { Failure: { error_type: "TypeOnlyError" } },
       });
 
       await expect(
         internalFundAgent(
-          'agent.testnet',
-          'sponsor.testnet',
-          generateTestKey('sponsor-key'),
+          "agent.testnet",
+          "sponsor.testnet",
+          generateTestKey("sponsor-key"),
           1.0,
-          mockProvider
-        )
-      ).rejects.toThrow('Transfer transaction failed: TypeOnlyError');
+          mockProvider,
+        ),
+      ).rejects.toThrow("Transfer transaction failed: TypeOnlyError");
 
       expect(mockTransfer).toHaveBeenCalledTimes(3);
     });
   });
 
-  describe('addKeysToAccount', () => {
-    it('should successfully add keys on first attempt', async () => {
-      const { mockAccount, mockTx, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+  describe("addKeysToAccount", () => {
+    it("should successfully add keys on first attempt", async () => {
+      const { mockAccount, mockTx, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior({
-        status: { SuccessValue: '' },
+        status: { SuccessValue: "" },
       });
 
-      const key1 = generateTestKey('key1');
-      const key2 = generateTestKey('key2');
+      const key1 = generateTestKey("key1");
+      const key2 = generateTestKey("key2");
       await addKeysToAccount(mockAccount, [key1, key2]);
 
       expect(mockAccount.createSignedTransaction).toHaveBeenCalledWith(
         mockAccount.accountId,
-        expect.arrayContaining([
-          expect.any(Object), 
-          expect.any(Object),
-        ])
+        expect.arrayContaining([expect.any(Object), expect.any(Object)]),
       );
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledWith(mockTx);
     });
 
-    it('should retry on failure and succeed on second attempt', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should retry on failure and succeed on second attempt", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn()
-          .mockRejectedValueOnce(new Error('Network error'))
-          .mockResolvedValueOnce({ status: { SuccessValue: '' } })
+        vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Network error"))
+          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
       );
 
-      const key1 = generateTestKey('key1');
+      const key1 = generateTestKey("key1");
       await addKeysToAccount(mockAccount, [key1]);
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw error after all retries exhausted', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should throw error after all retries exhausted", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn().mockRejectedValue(new Error('Network error'))
+        vi.fn().mockRejectedValue(new Error("Network error")),
       );
 
       await expect(
-        addKeysToAccount(mockAccount, [generateTestKey('key1')])
-      ).rejects.toThrow('Failed to add keys');
+        addKeysToAccount(mockAccount, [generateTestKey("key1")]),
+      ).rejects.toThrow("Failed to add keys");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });
 
-    it('should handle non-Error exceptions when adding keys', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should handle non-Error exceptions when adding keys", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn().mockRejectedValue('String error')
+        vi.fn().mockRejectedValue("String error"),
       );
 
       await expect(
-        addKeysToAccount(mockAccount, [generateTestKey('key1')])
-      ).rejects.toThrow('Failed to add keys');
+        addKeysToAccount(mockAccount, [generateTestKey("key1")]),
+      ).rejects.toThrow("Failed to add keys");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });
 
-    it('should retry on transaction failure status', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should retry on transaction failure status", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn()
+        vi
+          .fn()
           .mockResolvedValueOnce({
-            status: { Failure: { error_message: 'Transaction failed' } },
+            status: { Failure: { error_message: "Transaction failed" } },
           })
-          .mockResolvedValueOnce({ status: { SuccessValue: '' } })
+          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
       );
 
-      const key1 = generateTestKey('key1');
+      const key1 = generateTestKey("key1");
       await addKeysToAccount(mockAccount, [key1]);
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw error with error_type when add keys fails after retries', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should throw error with error_type when add keys fails after retries", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior({
-        status: { Failure: { error_type: 'TxnError' } },
+        status: { Failure: { error_type: "TxnError" } },
       });
 
       await expect(
-        addKeysToAccount(mockAccount, [generateTestKey('key1')])
-      ).rejects.toThrow('Add keys transaction failed: TxnError');
+        addKeysToAccount(mockAccount, [generateTestKey("key1")]),
+      ).rejects.toThrow("Add keys transaction failed: TxnError");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });
   });
 
-  describe('removeKeysFromAccount', () => {
-    it('should successfully remove keys on first attempt', async () => {
-      const { mockAccount, mockTx, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+  describe("removeKeysFromAccount", () => {
+    it("should successfully remove keys on first attempt", async () => {
+      const { mockAccount, mockTx, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior({
-        status: { SuccessValue: '' },
+        status: { SuccessValue: "" },
       });
 
-      const key1 = generateTestKey('key1');
-      const key2 = generateTestKey('key2');
+      const key1 = generateTestKey("key1");
+      const key2 = generateTestKey("key2");
       await removeKeysFromAccount(mockAccount, [key1, key2]);
 
       expect(mockAccount.createSignedTransaction).toHaveBeenCalledWith(
         mockAccount.accountId,
-        expect.arrayContaining([
-          expect.any(Object),
-          expect.any(Object),
-        ])
+        expect.arrayContaining([expect.any(Object), expect.any(Object)]),
       );
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledWith(mockTx);
     });
 
-    it('should retry on failure and succeed on second attempt', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should retry on failure and succeed on second attempt", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn()
-          .mockRejectedValueOnce(new Error('Network error'))
-          .mockResolvedValueOnce({ status: { SuccessValue: '' } })
+        vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Network error"))
+          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
       );
 
-      const key1 = generateTestKey('key1');
+      const key1 = generateTestKey("key1");
       await removeKeysFromAccount(mockAccount, [key1]);
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw error after all retries exhausted', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should throw error after all retries exhausted", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn().mockRejectedValue(new Error('Network error'))
+        vi.fn().mockRejectedValue(new Error("Network error")),
       );
 
       await expect(
-        removeKeysFromAccount(mockAccount, [generateTestKey('key1')])
-      ).rejects.toThrow('Failed to remove keys');
+        removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
+      ).rejects.toThrow("Failed to remove keys");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });
 
-    it('should handle non-Error exceptions when removing keys', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should handle non-Error exceptions when removing keys", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn().mockRejectedValue('String error')
+        vi.fn().mockRejectedValue("String error"),
       );
 
       await expect(
-        removeKeysFromAccount(mockAccount, [generateTestKey('key1')])
-      ).rejects.toThrow('Failed to remove keys');
+        removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
+      ).rejects.toThrow("Failed to remove keys");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });
 
-    it('should retry on transaction failure status', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should retry on transaction failure status", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior(() =>
-        vi.fn()
+        vi
+          .fn()
           .mockResolvedValueOnce({
-            status: { Failure: { error_type: 'ActionError' } },
+            status: { Failure: { error_type: "ActionError" } },
           })
-          .mockResolvedValueOnce({ status: { SuccessValue: '' } })
+          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
       );
 
-      const key1 = generateTestKey('key1');
+      const key1 = generateTestKey("key1");
       await removeKeysFromAccount(mockAccount, [key1]);
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw error with error_type when remove keys fails after retries', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
-      
+    it("should throw error with error_type when remove keys fails after retries", async () => {
+      const { mockAccount, setSendTransactionBehavior } =
+        setupKeyOperationMocks();
+
       setSendTransactionBehavior({
-        status: { Failure: { error_type: 'TxnError' } },
+        status: { Failure: { error_type: "TxnError" } },
       });
 
       await expect(
-        removeKeysFromAccount(mockAccount, [generateTestKey('key1')])
-      ).rejects.toThrow('Remove keys transaction failed: TxnError');
+        removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
+      ).rejects.toThrow("Remove keys transaction failed: TxnError");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });

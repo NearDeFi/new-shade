@@ -1,10 +1,6 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
-import {
-  getDstackClient,
-  internalGetAttestation,
-  TcbInfo,
-} from "./utils/tee";
+import { getDstackClient, internalGetAttestation, TcbInfo } from "./utils/tee";
 import { type DstackAttestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
@@ -13,7 +9,7 @@ import {
   SerializedReturnValue,
   TxExecutionStatus,
   BlockReference,
-} from "@near-js/types"; 
+} from "@near-js/types";
 import { NEAR } from "@near-js/tokens";
 
 export interface Measurements {
@@ -130,10 +126,7 @@ export class ShadeClient {
    * @throws Error if network request fails
    */
   async balance(): Promise<number> {
-    const account = createAccountObject(
-      this.agentAccountId,
-      this.config.rpc!,
-    );
+    const account = createAccountObject(this.agentAccountId, this.config.rpc!);
     try {
       const balance = await account.getBalance();
       return parseFloat(NEAR.toDecimal(balance));
@@ -321,7 +314,9 @@ export class ShadeClient {
    */
   async isWhitelisted(): Promise<boolean | null> {
     if (!this.config.agentContractId) {
-      throw new Error("agentContractId is required for checking if the agent is whitelisted");
+      throw new Error(
+        "agentContractId is required for checking if the agent is whitelisted",
+      );
     }
 
     const res = await this.view<boolean>({
@@ -335,9 +330,9 @@ export class ShadeClient {
     }
 
     const whitelisted_agents = await this.view<string[]>({
-        methodName: "get_whitelisted_agents_for_local",
-        args: {},
-      });
+      methodName: "get_whitelisted_agents_for_local",
+      args: {},
+    });
 
     return whitelisted_agents.includes(this.agentAccountId);
   }

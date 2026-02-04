@@ -1,16 +1,18 @@
-import crypto from 'crypto';
-import fs from 'fs';
-import { parse } from 'yaml';
+import crypto from "crypto";
+import fs from "fs";
+import { parse } from "yaml";
 
 export function getMeasurements(isTee, dockerComposePath) {
   if (!isTee) {
     return localMeasurements;
   }
-  
+
   if (!dockerComposePath) {
-    throw new Error('allowedEnvs and dockerComposeFile are required when isTee is true');
+    throw new Error(
+      "allowedEnvs and dockerComposeFile are required when isTee is true",
+    );
   }
-  
+
   return createTeeMeasurements(calculateAppComposeHash(dockerComposePath));
 }
 
@@ -18,27 +20,33 @@ function createTeeMeasurements(appComposeHash) {
   return {
     rtmrs: fixedMeasurements.rtmrs,
     key_provider_event_digest: fixedMeasurements.key_provider_event_digest,
-    app_compose_hash_payload: appComposeHash
+    app_compose_hash_payload: appComposeHash,
   };
 }
 
 // Helper function to extract allowed envs from docker-compose file
 export function extractAllowedEnvs(dockerComposePath) {
-  const dockerComposeFile = fs.readFileSync(dockerComposePath, 'utf8');
+  const dockerComposeFile = fs.readFileSync(dockerComposePath, "utf8");
   const dockerCompose = parse(dockerComposeFile);
   const allowedEnvs = [];
-  
+
   // Iterate through all services
   if (dockerCompose.services) {
     for (const serviceName in dockerCompose.services) {
       const service = dockerCompose.services[serviceName];
       if (service.environment) {
         // Handle both object and array formats for environment
-        if (typeof service.environment === 'object' && !Array.isArray(service.environment)) {
+        if (
+          typeof service.environment === "object" &&
+          !Array.isArray(service.environment)
+        ) {
           for (const envKey in service.environment) {
             const envValue = service.environment[envKey];
             // Check if the value matches ${VARIABLE_NAME} pattern
-            const match = envValue && typeof envValue === 'string' && envValue.match(/^\$\{([A-Z_][A-Z0-9_]*)\}$/);
+            const match =
+              envValue &&
+              typeof envValue === "string" &&
+              envValue.match(/^\$\{([A-Z_][A-Z0-9_]*)\}$/);
             if (match) {
               const varName = match[1];
               if (!allowedEnvs.includes(varName)) {
@@ -50,18 +58,22 @@ export function extractAllowedEnvs(dockerComposePath) {
       }
     }
   }
-  
+
   return allowedEnvs;
 }
 
 // Calculate app compose hash with optional allowed envs override
-export function calculateAppComposeHash(dockerComposePath, allowedEnvsOverride = null) {
-  const dockerComposeFile = fs.readFileSync(dockerComposePath, 'utf8');
-  
+export function calculateAppComposeHash(
+  dockerComposePath,
+  allowedEnvsOverride = null,
+) {
+  const dockerComposeFile = fs.readFileSync(dockerComposePath, "utf8");
+
   // If override is provided, use it; otherwise extract from docker-compose
-  const allowedEnvs = allowedEnvsOverride !== null 
-    ? allowedEnvsOverride 
-    : extractAllowedEnvs(dockerComposePath);
+  const allowedEnvs =
+    allowedEnvsOverride !== null
+      ? allowedEnvsOverride
+      : extractAllowedEnvs(dockerComposePath);
 
   const appCompose = {
     allowed_envs: allowedEnvs,
@@ -80,15 +92,15 @@ export function calculateAppComposeHash(dockerComposePath, allowedEnvsOverride =
     runner: "docker-compose",
     secure_time: false,
     storage_fs: "zfs",
-    tproxy_enabled: true
+    tproxy_enabled: true,
   };
 
   // Convert to JSON string (minified, matching the example format)
   const jsonString = JSON.stringify(appCompose);
-  
+
   // Calculate SHA256 hash
-  const hash = crypto.createHash('sha256').update(jsonString).digest('hex');
-  
+  const hash = crypto.createHash("sha256").update(jsonString).digest("hex");
+
   return hash;
 }
 
@@ -97,20 +109,24 @@ const localMeasurements = {
     mrtd: "0".repeat(96),
     rtmr0: "0".repeat(96),
     rtmr1: "0".repeat(96),
-    rtmr2: "0".repeat(96)
+    rtmr2: "0".repeat(96),
   },
   key_provider_event_digest: "0".repeat(96),
-  app_compose_hash_payload: "0".repeat(64)
+  app_compose_hash_payload: "0".repeat(64),
 };
 
 const fixedMeasurements = {
   rtmrs: {
     mrtd: "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
-    rtmr0: "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
-    rtmr1: "daa9380dc33b14728a9adb222437cf14db2d40ffc4d7061d8f3c329f6c6b339f71486d33521287e8faeae22301f4d815",
-    rtmr2: "1c41080c9c74be158e55b92f2958129fc1265647324c4a0dc403292cfa41d4c529f39093900347a11c8c1b82ed8c5edf"
+    rtmr0:
+      "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+    rtmr1:
+      "daa9380dc33b14728a9adb222437cf14db2d40ffc4d7061d8f3c329f6c6b339f71486d33521287e8faeae22301f4d815",
+    rtmr2:
+      "1c41080c9c74be158e55b92f2958129fc1265647324c4a0dc403292cfa41d4c529f39093900347a11c8c1b82ed8c5edf",
   },
-  key_provider_event_digest: "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c"
+  key_provider_event_digest:
+    "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c",
 };
 
 const PRE_LAUNCH_SCRIPT = `#!/bin/bash

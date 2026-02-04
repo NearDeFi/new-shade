@@ -29,7 +29,7 @@ const sponsorPrivateKey = process.env.SPONSOR_PRIVATE_KEY;
 
 if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
   throw new Error(
-    "Missing required environment variables AGENT_CONTRACT_ID, SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY"
+    "Missing required environment variables AGENT_CONTRACT_ID, SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY",
   );
 }
 
@@ -66,7 +66,7 @@ app.post("/test/register-agent/:testName", async (c) => {
   try {
     const testName = c.req.param("testName");
     const agent = await createAgent();
-    
+
     // Register the agent
     let registrationError: string | undefined;
     try {
@@ -74,7 +74,7 @@ app.post("/test/register-agent/:testName", async (c) => {
     } catch (error: any) {
       registrationError = error.message || String(error);
     }
-    
+
     if (registrationError) {
       return c.json(
         {
@@ -82,13 +82,13 @@ app.post("/test/register-agent/:testName", async (c) => {
           agentAccountId: agent.accountId(),
           registrationError,
         },
-        500
+        500,
       );
     }
-    
+
     // Store the agent for later use
     registeredAgents.set(testName, agent);
-    
+
     return c.json({
       success: true,
       agentAccountId: agent.accountId(),
@@ -100,7 +100,7 @@ app.post("/test/register-agent/:testName", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -118,7 +118,7 @@ app.post("/test/wrong-measurements-rtmr2", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -135,7 +135,7 @@ app.post("/test/wrong-key-provider", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -152,7 +152,7 @@ app.post("/test/wrong-app-compose", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -169,7 +169,7 @@ app.post("/test/wrong-ppid", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -186,7 +186,7 @@ app.post("/test/different-account-id", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -199,9 +199,10 @@ app.post("/test/measurements-removed", async (c) => {
       return c.json(
         {
           success: false,
-          error: "Agent not found. Please call /test/register-agent/measurements-removed first.",
+          error:
+            "Agent not found. Please call /test/register-agent/measurements-removed first.",
         },
-        400
+        400,
       );
     }
     const result = await testMeasurementsRemoved(agent);
@@ -213,7 +214,7 @@ app.post("/test/measurements-removed", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -226,9 +227,10 @@ app.post("/test/ppid-removed", async (c) => {
       return c.json(
         {
           success: false,
-          error: "Agent not found. Please call /test/register-agent/ppid-removed first.",
+          error:
+            "Agent not found. Please call /test/register-agent/ppid-removed first.",
         },
-        400
+        400,
       );
     }
     const result = await testPpidRemoved(agent);
@@ -240,7 +242,7 @@ app.post("/test/ppid-removed", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -257,7 +259,7 @@ app.post("/test/successful-registration", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });
@@ -273,7 +275,7 @@ app.post("/test/unique-keys", async (c) => {
         error: error.message,
         stack: error.stack,
       },
-      500
+      500,
     );
   }
 });

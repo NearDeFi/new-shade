@@ -26,7 +26,8 @@ if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
 export const agent = await ShadeClient.create({
   networkId: "testnet",
   agentContractId: agentContractId, // Agent contract the agent will interact with
-  sponsor: { // Sponsor account that will fund the agent
+  sponsor: {
+    // Sponsor account that will fund the agent
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },

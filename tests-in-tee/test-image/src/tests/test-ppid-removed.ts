@@ -1,6 +1,6 @@
 /**
  * Test 7: Can't do stuff if PPID is removed
- * 
+ *
  * In script: Add measurements back, remove PPID
  * In TEE: Try to make call, check failed and reason why
  * In TEE: Return results to script
@@ -8,9 +8,7 @@
 
 import { ShadeClient } from "@neardefi/shade-agent-js";
 
-export default async function testPpidRemoved(
-  agent: ShadeClient
-): Promise<{
+export default async function testPpidRemoved(agent: ShadeClient): Promise<{
   success: boolean;
   agentAccountId: string;
   callError?: string;
@@ -25,7 +23,8 @@ export default async function testPpidRemoved(
       methodName: "request_signature",
       args: {
         path: "test-path",
-        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
+        payload:
+          "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });

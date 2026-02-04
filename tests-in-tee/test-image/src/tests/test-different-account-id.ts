@@ -1,6 +1,6 @@
 /**
  * Test 5: Can't submit attestation from different account ID
- * 
+ *
  * In script: Correct PPID
  * In TEE: Check that it can register and make a call
  * In script: Check that it is indeed registered
@@ -19,7 +19,7 @@ import { JsonRpcProvider } from "@near-js/providers";
 import { NEAR } from "@near-js/tokens";
 
 export default async function testDifferentAccountId(
-  agent: ShadeClient
+  agent: ShadeClient,
 ): Promise<{
   success: boolean;
   agentAccountId: string;
@@ -33,7 +33,9 @@ export default async function testDifferentAccountId(
   const differentKeyPair = KeyPair.fromRandom("ed25519");
   const publicKey = differentKeyPair.getPublicKey();
   const differentAccountIdBytes = publicKey.data;
-  const differentAccountId = Buffer.from(differentAccountIdBytes).toString("hex").toLowerCase();
+  const differentAccountId = Buffer.from(differentAccountIdBytes)
+    .toString("hex")
+    .toLowerCase();
 
   // Get attestation for the original agent account (this will have wrong report data for the different account)
   // getAttestation() now returns the contract-formatted attestation directly
@@ -55,12 +57,22 @@ export default async function testDifferentAccountId(
   });
 
   const differentSigner = new KeyPairSigner(differentKeyPair);
-  const differentAccount = new Account(differentAccountId, provider, differentSigner);
+  const differentAccount = new Account(
+    differentAccountId,
+    provider,
+    differentSigner,
+  );
 
   const funderPrivateKey = process.env.SPONSOR_PRIVATE_KEY;
   const sponsorAccountId = process.env.SPONSOR_ACCOUNT_ID;
-  const funderSigner = KeyPairSigner.fromSecretKey(funderPrivateKey as KeyPairString);
-  const funderAccount = new Account(sponsorAccountId as string, provider, funderSigner);
+  const funderSigner = KeyPairSigner.fromSecretKey(
+    funderPrivateKey as KeyPairString,
+  );
+  const funderAccount = new Account(
+    sponsorAccountId as string,
+    provider,
+    funderSigner,
+  );
 
   // Fund the different account
   await funderAccount.transfer({
@@ -80,7 +92,8 @@ export default async function testDifferentAccountId(
       },
       gas: BigInt("300000000000000"), // 300 TGas
     });
-    registrationError = "Registration with different account should have failed but succeeded";
+    registrationError =
+      "Registration with different account should have failed but succeeded";
   } catch (error: any) {
     registrationError = error.message || String(error);
     // Expected to fail
@@ -94,7 +107,8 @@ export default async function testDifferentAccountId(
       methodName: "request_signature",
       args: {
         path: "test-path",
-        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
+        payload:
+          "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });
@@ -108,8 +122,10 @@ export default async function testDifferentAccountId(
   const success =
     registrationError !== undefined &&
     callError !== undefined &&
-    registrationError !== "Registration with different account should have failed but succeeded" &&
-    callError !== "Call from different account should have failed but succeeded";
+    registrationError !==
+      "Registration with different account should have failed but succeeded" &&
+    callError !==
+      "Call from different account should have failed but succeeded";
 
   return {
     success,

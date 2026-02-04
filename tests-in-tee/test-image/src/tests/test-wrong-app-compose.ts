@@ -1,6 +1,6 @@
 /**
  * Test 3: Can't verify with wrong app compose
- * 
+ *
  * In script: Add correct measurements except app compose, keep everything the same
  *   except for an env variable (same docker image)
  * In TEE: Try to register, check it fails
@@ -12,9 +12,7 @@
 
 import { ShadeClient } from "@neardefi/shade-agent-js";
 
-export default async function testWrongAppCompose(
-  agent: ShadeClient
-): Promise<{
+export default async function testWrongAppCompose(agent: ShadeClient): Promise<{
   success: boolean;
   agentAccountId: string;
   registrationError?: string;
@@ -39,7 +37,8 @@ export default async function testWrongAppCompose(
       methodName: "request_signature",
       args: {
         path: "test-path",
-        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
+        payload:
+          "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });

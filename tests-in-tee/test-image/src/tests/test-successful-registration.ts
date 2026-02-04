@@ -1,6 +1,6 @@
 /**
  * Test 7: Successful registration and signature request
- * 
+ *
  * In script: Approve correct measurements and PPIDs
  * In TEE: Register agent (should succeed)
  * In TEE: Request signature (should succeed)
@@ -10,7 +10,7 @@
 import { ShadeClient } from "@neardefi/shade-agent-js";
 
 export default async function testSuccessfulRegistration(
-  agent: ShadeClient
+  agent: ShadeClient,
 ): Promise<{
   success: boolean;
   agentAccountId: string;
@@ -40,7 +40,8 @@ export default async function testSuccessfulRegistration(
       methodName: "request_signature",
       args: {
         path: "test-path",
-        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
+        payload:
+          "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });

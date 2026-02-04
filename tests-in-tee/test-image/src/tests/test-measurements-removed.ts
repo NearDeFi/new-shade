@@ -1,6 +1,6 @@
 /**
  * Test 6: Can't do stuff if measurements are removed
- * 
+ *
  * In script: Remove measurements
  * In TEE: Try to make call, check failed and reason why
  * In TEE: Return results to script
@@ -9,7 +9,7 @@
 import { ShadeClient } from "@neardefi/shade-agent-js";
 
 export default async function testMeasurementsRemoved(
-  agent: ShadeClient
+  agent: ShadeClient,
 ): Promise<{
   success: boolean;
   agentAccountId: string;
@@ -25,13 +25,14 @@ export default async function testMeasurementsRemoved(
       methodName: "request_signature",
       args: {
         path: "test-path",
-        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
+        payload:
+          "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });
     callError = "Call should have failed but succeeded";
   } catch (error: any) {
-    callError = (error?.message ?? String(error));
+    callError = error?.message ?? String(error);
     // Expected to fail - verify error mentions measurements
     if (!callError?.toLowerCase().includes("measurement")) {
       callError = `Call failed but error doesn't mention measurements: ${callError}`;
@@ -49,4 +50,4 @@ export default async function testMeasurementsRemoved(
     agentAccountId,
     callError,
   };
-}  
+}

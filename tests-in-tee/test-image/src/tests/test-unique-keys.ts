@@ -1,6 +1,6 @@
 /**
  * Test: Verify that two agent instances generate different private keys
- * 
+ *
  * In TEE: Create two agent instances with numKeys=3
  * In TEE: Register both agents (adds keys)
  * In TEE: Get all private keys from both agents
@@ -19,7 +19,6 @@ export default async function testUniqueKeys(): Promise<{
   agent1AccountId?: string;
   agent2AccountId?: string;
 }> {
-
   try {
     // Create first agent instance with numKeys=3
     const agent1 = await ShadeClient.create({

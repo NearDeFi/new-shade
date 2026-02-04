@@ -12,12 +12,12 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use serde_json::json;
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::fmt;
 use dcap_qvl::verify::VerifiedReport;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest as _, Sha256, Sha384};
 
 /// Expected TCB status for a successfully verified TEE quote.
@@ -141,11 +141,7 @@ impl Default for DstackAttestation {
             app_compose: String::new(),
             event_log: Vec::new(),
         };
-        DstackAttestation::new(
-            QuoteBytes::from(Vec::new()),
-            collateral,
-            tcb_info,
-        )
+        DstackAttestation::new(QuoteBytes::from(Vec::new()), collateral, tcb_info)
     }
 }
 

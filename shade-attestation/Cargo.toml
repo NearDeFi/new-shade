@@ -2,7 +2,8 @@
 name = "shade-attestation"
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+description = "Attestation crate for the Shade Agent Framework"
+license = "Apache-2.0"
 
 [dependencies]
 borsh = { version = "1.6.0", features = ["derive"] }

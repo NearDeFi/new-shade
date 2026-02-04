@@ -1,152 +1,66 @@
-# new-shade
+# shade-agent-framework
 
-Please review the [NOTICE.txt](NOTICE.txt) before proceeding. 
+Description about Shade Agents
 
-Deployment is working for local, let me know before you try deploy to TEE, it hasnt been used yet.
+This monorepo contains all the tooling for the Shade Agent Framework, it contains:
 
-Since this is still experimental please review the library and the contract and perform tests to make sure you are happy with them before proceeding.
+- [shade-agent-js](./shade-agent-js/) - A published library for creating agents in JavaScript and Typescript. It abstracts the complexity of TEEs and agent contracts.
+- [shade-agent-cli](./shade-agent-cli/) - A published CLI to help deploy Shade Agents.
+- [shade-attestation](./shade-attestation/) - A published Rust crate to verify Shade Agent TEE attestations in NEAR smart contracts.
+- [shade-contract-template](./shade-contract-template/) - A minimal example agent contract that is easy to swap between local and TEE modes. Note that it relies on local dependencies and is used for development of the framework for a standalone example see https://github.com/NearDeFi/shade-agent-template
+- [shade-agent-template](./shade-agent-template/) - A minimal example price oracle agent. Note that it relies on local dependencies and is used for development of the framework for a stan
+- [tests-in-tee](./tests-in-tee/) - A set of integration tests that run inside a TEE and hit shade-agent-js, shade-contract-template and shade-attestation.
 
-Its recommended to use omni-transaction-rs to restrict the actions the agent can take https://github.com/near/omni-transaction-rs
+---
 
-First build the library 
+## Testing
+
+Before testing install dependencies
 
 ```bash
-cd shade-api-ts
+cd shade-agent-cli
 npm i
-npm run build
-```
-
-Install dependencies in the cli 
-
-```bash
-cd ../shade-agent-cli
-npmi
-```
-
-Install dependencies in the template 
-
-```bash
-cd ../agent-template
+cd ../shade-agent-js
 npm i
+cd ../tests-in-tee
+npm i
+cd test-image
+npm i
+cd ../..
 ```
 
-Fill in the environment variables in a .env within the template 
+Build the contract
 
 ```bash
-AGENT_CONTRACT_ID=
+docker run --rm \
+  -v "$(pwd)":/workspace \
+  -w "/workspace/shade-contract-template" \
+  pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 \
+  cargo near build non-reproducible-wasm --no-abi
+```
+
+Fill out environment variables
+
+Inside ./tests-in-tee fill out an env file
+
+```env
+TESTNET_ACCOUNT_ID=
+TESTNET_PRIVATE_KEY=
 SPONSOR_ACCOUNT_ID=
 SPONSOR_PRIVATE_KEY=
+PHALA_API_KEY=
 ```
 
-Fill out the contract_id and docker tag in the deployment.yaml file.
+TESTNET and SPONSOR can be the same, make sure the account has at least 20 testnet NEAR.
 
-Run the CLI
-
-Set up auth in the CLI
+Run all tests
 
 ```bash
-npm run shade:cli auth
+cd shade-agent-js
+npm run test
+cd ../tests-in-tee
+npm run test
+cd ../shade-contract-template
+cargo test
+cd ..
 ```
-
-Deploy 
-
-```bash
-npm run shade:cli deploy
-```
-
-for local
-
-Start the agent 
-
-```bash
-npm run dev
-```
-
-Whitelist the agent account id thats shared when you run it 
-Edit the command
-```bash
-npm run shade:cli whitelist
-```
-
-Review the contract for other functions like removing agents and updating the owner.
-
-
-## Migrating to this new setup 
-
-- .env.development.local.example -> .env by default 
-- Fewer environment variables
-- Remove shade-agent-api from docker-compose.yaml
-- Edit environment variables passed in docker-compose.yaml
-- Copy the example deployment.yaml
-- contract id does not need to be a sub account of the account id 
-- You need to create a shade client for example
-
-```js
-export const agent = await ShadeClient.create({
-  networkId: "testnet",
-  agentContractId: agentContractId,
-  sponsor: {
-    accountId: sponsorAccountId,
-    privateKey: sponsorPrivateKey,
-  },
-  derivationPath: sponsorPrivateKey,
-});
-```
-
-- All agent functions are now accessible under the client
-
-From `const accountId = await agentAccountId();` to ` const accountId = agent.accountId();`, from `const balance = await agent.balance();` to `const balance = await agent("getBalance");`.
-
-- You need to whitelist the agent manually before it can register, you should implement some logic for the agent to start when it is registered, for example
-
-```js
-while (true) {
-  const status = await agent.isRegistered();
-  if (status.whitelisted) {
-    const registered = await agent.register();
-    if (registered) {
-      break;
-    }
-  }
-  await new Promise(resolve => setTimeout(resolve, 10000));
-}
-
-const port = Number(process.env.PORT || "3000");
-console.log(`Server starting on port ${port}...`);
-serve({ fetch: app.fetch, port });
-```
-
-- requestSignature method is no longer supported, use call method
-
-```js
-    const signRes = await agent.call({
-      methodName: "request_signature",
-      args: {
-        path: "ethereum-1",
-        payload: uint8ArrayToHex(hashesToSign[0]),
-        key_type: "Ecdsa",
-      },
-    });
-```
-
-You may need to cast results into types now, this can be got from chainsig.js, see the transaction route for full example
-
-- Methods no longer return json so no need to do balance.balance after doing agent.balance()
-
-```js
-    // Get the agent's account ID
-    const accountId = agent.accountId();
-
-    // Get the balance of the agent account
-    const balance = await agent.balance();
-
-    return c.json({
-      accountId,
-      balance: balance.toString(),
-    });
-```
-
-
-If you want to start the agent again you don't need to run the CLI 
-
-If you want to reconfigure something in the contract like switching to mainnet you should run the CLI again

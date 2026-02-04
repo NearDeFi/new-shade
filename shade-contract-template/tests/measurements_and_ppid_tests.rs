@@ -477,8 +477,8 @@ async fn test_measurements_and_ppid() -> Result<(), Box<dyn std::error::Error + 
 /// In local mode, agents must register with default measurements and default PPID; approving
 /// only non-default values should cause registration to fail.
 #[tokio::test]
-async fn test_register_fails_without_default_measurements_or_ppid(
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_register_fails_without_default_measurements_or_ppid()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;

@@ -17,7 +17,6 @@ interface RawCollateral {
   qe_identity_signature?: string; // hex string
 }
 
-
 // Decodes a hex string to a byte array
 function hexToBytes(hexStr: string | undefined): number[] {
   if (!hexStr || hexStr === "") {

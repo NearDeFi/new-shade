@@ -144,10 +144,7 @@ impl Contract {
     pub fn remove_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
         self.require_owner();
         for id in ppids {
-            require!(
-                self.approved_ppids.remove(&id),
-                "PPID not in approved list"
-            );
+            require!(self.approved_ppids.remove(&id), "PPID not in approved list");
         }
     }
 

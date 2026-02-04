@@ -1,2 +1,2 @@
-export * from './near-mocks';
-export * from './tee-mocks';
+export * from "./near-mocks";
+export * from "./tee-mocks";

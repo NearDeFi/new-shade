@@ -9,26 +9,30 @@
  * 4. Verifying results
  */
 
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
-import path, { dirname, resolve } from 'path';
-import fs from 'fs';
-import dotenv from 'dotenv';
-import { parse, stringify } from 'yaml';
-import { platform } from 'os';
-import { Account } from '@near-js/accounts';
-import { KeyPairSigner } from '@near-js/signers';
-import { JsonRpcProvider } from '@near-js/providers';
-import { NEAR } from '@near-js/tokens';
-import { getMeasurements, calculateAppComposeHash, extractAllowedEnvs } from '../shade-agent-cli/src/utils/measurements.js';
-import { getPpids } from '../shade-agent-cli/src/utils/ppids.js';
-import { tgasToGas } from '../shade-agent-cli/src/utils/near.js';
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+import path, { dirname, resolve } from "path";
+import fs from "fs";
+import dotenv from "dotenv";
+import { parse, stringify } from "yaml";
+import { platform } from "os";
+import { Account } from "@near-js/accounts";
+import { KeyPairSigner } from "@near-js/signers";
+import { JsonRpcProvider } from "@near-js/providers";
+import { NEAR } from "@near-js/tokens";
+import {
+  getMeasurements,
+  calculateAppComposeHash,
+  extractAllowedEnvs,
+} from "../shade-agent-cli/src/utils/measurements.js";
+import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
+import { tgasToGas } from "../shade-agent-cli/src/utils/near.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables from .env file
-const envPath = resolve(__dirname, '.env');
+const envPath = resolve(__dirname, ".env");
 dotenv.config({ path: envPath });
 
 // Load environment variables
@@ -37,19 +41,19 @@ const TESTNET_PRIVATE_KEY = process.env.TESTNET_PRIVATE_KEY;
 const PHALA_API_KEY = process.env.PHALA_API_KEY;
 
 if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
-  console.error('Missing required environment variables:');
-  console.error('  TESTNET_ACCOUNT_ID');
-  console.error('  TESTNET_PRIVATE_KEY');
-  console.error('  PHALA_API_KEY');
+  console.error("Missing required environment variables:");
+  console.error("  TESTNET_ACCOUNT_ID");
+  console.error("  TESTNET_PRIVATE_KEY");
+  console.error("  PHALA_API_KEY");
   process.exit(1);
 }
 
 // Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
 const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
-const TEST_APP_NAME = 'shade-integration-tests';
+const TEST_APP_NAME = "shade-integration-tests";
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
-const SKIP_CONTRACT_DEPLOYMENT = false
+const SKIP_CONTRACT_DEPLOYMENT = false;
 
 // Toggle to skip Phala deployment - ON if TEST_APP_URL is specified, OFF if empty
 // const TEST_APP_URL = "https://45034fea45a406a829feea099c77bbe6cf26faed-3000.dstack-pha-prod7.phala.network";
@@ -57,65 +61,67 @@ const SKIP_PHALA_DEPLOYMENT = false;
 
 // Write AGENT_CONTRACT_ID to .env file for docker-compose
 function updateEnvFile() {
-  const envPath = resolve(__dirname, '.env');
-  let envContent = '';
-  
+  const envPath = resolve(__dirname, ".env");
+  let envContent = "";
+
   if (fs.existsSync(envPath)) {
-    envContent = fs.readFileSync(envPath, 'utf8');
+    envContent = fs.readFileSync(envPath, "utf8");
   }
-  
+
   // Update or add AGENT_CONTRACT_ID
-  const lines = envContent.split('\n');
+  const lines = envContent.split("\n");
   let found = false;
-  const updatedLines = lines.map(line => {
-    if (line.startsWith('AGENT_CONTRACT_ID=')) {
+  const updatedLines = lines.map((line) => {
+    if (line.startsWith("AGENT_CONTRACT_ID=")) {
       found = true;
       return `AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`;
     }
     return line;
   });
-  
+
   if (!found) {
     updatedLines.push(`AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`);
   }
-  
+
   // Also ensure SPONSOR_ACCOUNT_ID and SPONSOR_PRIVATE_KEY are set
   let sponsorAccountFound = false;
   let sponsorPrivateKeyFound = false;
-  const finalLines = updatedLines.map(line => {
-    if (line.startsWith('SPONSOR_ACCOUNT_ID=')) {
+  const finalLines = updatedLines.map((line) => {
+    if (line.startsWith("SPONSOR_ACCOUNT_ID=")) {
       sponsorAccountFound = true;
       return `SPONSOR_ACCOUNT_ID=${TESTNET_ACCOUNT_ID}`;
     }
-    if (line.startsWith('SPONSOR_PRIVATE_KEY=')) {
+    if (line.startsWith("SPONSOR_PRIVATE_KEY=")) {
       sponsorPrivateKeyFound = true;
       return `SPONSOR_PRIVATE_KEY=${TESTNET_PRIVATE_KEY}`;
     }
     return line;
   });
-  
+
   if (!sponsorAccountFound) {
     finalLines.push(`SPONSOR_ACCOUNT_ID=${TESTNET_ACCOUNT_ID}`);
   }
   if (!sponsorPrivateKeyFound) {
     finalLines.push(`SPONSOR_PRIVATE_KEY=${TESTNET_PRIVATE_KEY}`);
   }
-  
-  fs.writeFileSync(envPath, finalLines.join('\n') + '\n');
-  console.log(`✓ Updated .env file with AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`);
+
+  fs.writeFileSync(envPath, finalLines.join("\n") + "\n");
+  console.log(
+    `✓ Updated .env file with AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`,
+  );
 }
 
 // Initialize NEAR account
 const provider = new JsonRpcProvider(
   {
-      url: "https://test.rpc.fastnear.com"
+    url: "https://test.rpc.fastnear.com",
   },
   {
-      retries: 3,
-      backoff: 2,
-      wait: 1000,
-  }
-  );
+    retries: 3,
+    backoff: 2,
+    wait: 1000,
+  },
+);
 
 const signer = KeyPairSigner.fromSecretKey(TESTNET_PRIVATE_KEY);
 const account = new Account(TESTNET_ACCOUNT_ID, provider, signer);
@@ -126,14 +132,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Create contract account (as subaccount of TESTNET_ACCOUNT_ID)
 async function createContractAccount() {
-  console.log('Creating contract account...');
+  console.log("Creating contract account...");
   const fundingAmount = 10; // NEAR tokens
-  
+
   // Check if master account has enough balance
   const requiredBalance = fundingAmount + 0.1;
   const masterBalance = await account.getBalance(NEAR);
   const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));
-  
+
   // Get contract account balance if it exists (will be returned to master when deleted)
   let contractAccountExists = false;
   let contractBalanceDecimal = 0;
@@ -147,48 +153,50 @@ async function createContractAccount() {
     }
   } catch (e) {
     // Contract account doesn't exist, balance is 0 - this is fine
-    if (e.type !== 'AccountDoesNotExist') {
+    if (e.type !== "AccountDoesNotExist") {
       throw new Error(`Error checking contract account: ${e.message}`);
     }
   }
-  
+
   const totalBalance = masterBalanceDecimal + contractBalanceDecimal;
-  
+
   if (totalBalance < requiredBalance) {
     throw new Error(
       `Insufficient balance. Master account has ${totalBalance} NEAR but needs ${requiredBalance} NEAR ` +
-      `(${fundingAmount} NEAR for contract + 0.1 NEAR for fees)`
+        `(${fundingAmount} NEAR for contract + 0.1 NEAR for fees)`,
     );
   }
-  
+
   // Delete the contract account if it exists
   if (contractAccountExists) {
-    console.log('Contract account already exists, deleting it...');
+    console.log("Contract account already exists, deleting it...");
     try {
       await contractAccount.deleteAccount(TESTNET_ACCOUNT_ID);
       await sleep(2000);
     } catch (deleteError) {
-      if (deleteError.type === 'AccessKeyDoesNotExist') {
+      if (deleteError.type === "AccessKeyDoesNotExist") {
         throw new Error(
-          'Cannot delete contract account - access key mismatch. ' +
-          'The contract account was created with a different master account.'
+          "Cannot delete contract account - access key mismatch. " +
+            "The contract account was created with a different master account.",
         );
       }
-      throw new Error(`Failed to delete existing contract account: ${deleteError.message}`);
+      throw new Error(
+        `Failed to delete existing contract account: ${deleteError.message}`,
+      );
     }
   } else {
-    console.log('Contract account does not exist, creating it');
+    console.log("Contract account does not exist, creating it");
   }
-  
+
   // Create the contract account
   try {
     const publicKey = await account.getSigner().getPublicKey();
     const result = await account.createAccount(
       AGENT_CONTRACT_ID,
       publicKey,
-      NEAR.toUnits(fundingAmount)
+      NEAR.toUnits(fundingAmount),
     );
-    
+
     await sleep(2000);
     console.log(`✓ Contract account created: ${AGENT_CONTRACT_ID}`);
   } catch (e) {
@@ -198,18 +206,27 @@ async function createContractAccount() {
 
 // Deploy contract WASM
 async function deployContract() {
-  console.log('Deploying contract WASM...');
-  const wasmPath = resolve(__dirname, '..', 'agent-template', 'shade-contract-template', 'target', 'near', 'shade_contract.wasm');
-  
+  console.log("Deploying contract WASM...");
+  const wasmPath = resolve(
+    __dirname,
+    "..",
+    "shade-contract-template",
+    "target",
+    "near",
+    "shade_contract.wasm",
+  );
+
   if (!fs.existsSync(wasmPath)) {
-    throw new Error(`WASM file not found at ${wasmPath}. Please build the contract first.`);
+    throw new Error(
+      `WASM file not found at ${wasmPath}. Please build the contract first.`,
+    );
   }
-  
+
   try {
     const wasmBytes = fs.readFileSync(wasmPath);
     await contractAccount.deployContract(new Uint8Array(wasmBytes));
     await sleep(2000);
-    console.log('✓ Contract deployed');
+    console.log("✓ Contract deployed");
   } catch (e) {
     throw new Error(`Failed to deploy contract: ${e.message}`);
   }
@@ -217,23 +234,23 @@ async function deployContract() {
 
 // Initialize contract
 async function initializeContract() {
-  console.log('Initializing contract...');
-  
+  console.log("Initializing contract...");
+
   const initArgs = {
     owner_id: TESTNET_ACCOUNT_ID,
-    mpc_contract_id: 'v1.signer-prod.testnet', // testnet MPC contract
+    mpc_contract_id: "v1.signer-prod.testnet", // testnet MPC contract
     requires_tee: true,
   };
-  
+
   try {
     await contractAccount.callFunction({
       contractId: AGENT_CONTRACT_ID,
-      methodName: 'new',
+      methodName: "new",
       args: initArgs,
       gas: tgasToGas(30),
     });
     await sleep(2000);
-    console.log('✓ Contract initialized');
+    console.log("✓ Contract initialized");
   } catch (e) {
     throw new Error(`Failed to initialize contract: ${e.message}`);
   }
@@ -242,21 +259,21 @@ async function initializeContract() {
 // Get sudo prefix for Docker commands based on OS
 function getSudoPrefix() {
   const platformName = platform();
-  return platformName === 'linux' ? 'sudo ' : '';
+  return platformName === "linux" ? "sudo " : "";
 }
 
 // Build the Docker image
 async function buildTestImage(dockerTag) {
-  console.log('Building the Docker image...');
+  console.log("Building the Docker image...");
   try {
-    const dockerfilePath = resolve(__dirname, '..', 'test-image.Dockerfile');
+    const dockerfilePath = resolve(__dirname, "..", "test-image.Dockerfile");
     const dockerfileFlag = `-f ${dockerfilePath}`;
     const sudoPrefix = getSudoPrefix();
     // Use the directory containing the Dockerfile as build context (project root)
-    const buildContext = resolve(__dirname, '..');
+    const buildContext = resolve(__dirname, "..");
     execSync(
       `${sudoPrefix}docker build ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`,
-      { stdio: 'inherit' }
+      { stdio: "inherit" },
     );
   } catch (e) {
     throw new Error(`Error building the Docker image: ${e.message}`);
@@ -265,18 +282,18 @@ async function buildTestImage(dockerTag) {
 
 // Push the Docker image to docker hub and return the codehash
 async function pushTestImage(dockerTag) {
-  console.log('Pushing the Docker image...');
+  console.log("Pushing the Docker image...");
   try {
     const sudoPrefix = getSudoPrefix();
-    const output = execSync(
-      `${sudoPrefix}docker push ${dockerTag}:latest`,
-      { encoding: 'utf-8', stdio: 'pipe' }
-    );
+    const output = execSync(`${sudoPrefix}docker push ${dockerTag}:latest`, {
+      encoding: "utf-8",
+      stdio: "pipe",
+    });
     const match = output.toString().match(/sha256:[a-f0-9]{64}/gim);
     if (!match || !match[0]) {
-      throw new Error('Could not extract codehash from the Docker push output');
+      throw new Error("Could not extract codehash from the Docker push output");
     }
-    const codehash = match[0].split('sha256:')[1];
+    const codehash = match[0].split("sha256:")[1];
     return codehash;
   } catch (e) {
     throw new Error(`Error pushing the Docker image: ${e.message}`);
@@ -285,22 +302,26 @@ async function pushTestImage(dockerTag) {
 
 // Update the docker-compose.yaml file with the new image codehash
 function updateDockerComposeImage(dockerTag, codehash) {
-  console.log('Updating docker-compose.yaml with new image codehash...');
+  console.log("Updating docker-compose.yaml with new image codehash...");
   try {
-    const composePath = resolve(__dirname, 'docker-compose.yaml');
-    const compose = fs.readFileSync(composePath, 'utf8');
+    const composePath = resolve(__dirname, "docker-compose.yaml");
+    const compose = fs.readFileSync(composePath, "utf8");
     const doc = parse(compose);
 
-    if (!doc.services || !doc.services['shade-test-image']) {
-      throw new Error(`Could not find services.shade-test-image in ${composePath}`);
+    if (!doc.services || !doc.services["shade-test-image"]) {
+      throw new Error(
+        `Could not find services.shade-test-image in ${composePath}`,
+      );
     }
 
     // Set image to tag@sha256:codehash
-    doc.services['shade-test-image'].image = `${dockerTag}@sha256:${codehash}`;
+    doc.services["shade-test-image"].image = `${dockerTag}@sha256:${codehash}`;
 
     const updated = stringify(doc);
-    fs.writeFileSync(composePath, updated, 'utf8');
-    console.log(`✓ Updated docker-compose.yaml with image ${dockerTag}@sha256:${codehash}`);
+    fs.writeFileSync(composePath, updated, "utf8");
+    console.log(
+      `✓ Updated docker-compose.yaml with image ${dockerTag}@sha256:${codehash}`,
+    );
   } catch (e) {
     throw new Error(`Error updating docker-compose.yaml: ${e.message}`);
   }
@@ -308,103 +329,108 @@ function updateDockerComposeImage(dockerTag, codehash) {
 
 // Build, push, and update docker-compose.yaml
 async function buildAndPushTestImage() {
-  const dockerTag = process.env.DOCKER_TAG || 'pivortex/shade-test-image';
+  const dockerTag = process.env.DOCKER_TAG || "pivortex/shade-test-image";
   console.log(`Using Docker tag: ${dockerTag}`);
-  
+
   // Build the image
   await buildTestImage(dockerTag);
-  
+
   // Push the image and get the codehash
   const codehash = await pushTestImage(dockerTag);
-  
+
   // Update docker-compose.yaml
   updateDockerComposeImage(dockerTag, codehash);
-  
+
   return codehash;
 }
 
 // Get Phala CLI binary
 function getPhalaBin() {
-  const cliRoot = resolve(__dirname, '..', 'shade-agent-cli');
-  const phalaBin = resolve(cliRoot, 'node_modules', '.bin', 'phala');
+  const cliRoot = resolve(__dirname, "..", "shade-agent-cli");
+  const phalaBin = resolve(cliRoot, "node_modules", ".bin", "phala");
   if (fs.existsSync(phalaBin)) {
     return phalaBin;
   }
-  throw new Error('Phala CLI not found. Run npm install in shade-agent-cli directory.');
+  throw new Error(
+    "Phala CLI not found. Run npm install in shade-agent-cli directory.",
+  );
 }
 
 // Deploy to Phala
 async function deployToPhala() {
   const phalaBin = getPhalaBin();
-  const composePath = resolve(__dirname, 'docker-compose.yaml');
-  const envFilePath = resolve(__dirname, '.env');
+  const composePath = resolve(__dirname, "docker-compose.yaml");
+  const envFilePath = resolve(__dirname, ".env");
 
   // Extract allowed environment variables from docker-compose.yaml
   const allowedEnvs = extractAllowedEnvs(composePath);
-  
+
   // Build environment variable flags for Phala CLI
   // Only include env vars that are allowed in docker-compose.yaml
-  let envFlags = '';
+  let envFlags = "";
   if (envFilePath && allowedEnvs.length > 0) {
     // Resolve env file path relative to current working directory
-    const resolvedEnvFilePath = path.isAbsolute(envFilePath) 
-      ? envFilePath 
+    const resolvedEnvFilePath = path.isAbsolute(envFilePath)
+      ? envFilePath
       : path.resolve(process.cwd(), envFilePath);
-    
+
     // Read the env file and extract values for allowed env vars
     if (!fs.existsSync(resolvedEnvFilePath)) {
-      console.log(`Warning: Env file not found at ${resolvedEnvFilePath}, skipping environment variables`);
+      console.log(
+        `Warning: Env file not found at ${resolvedEnvFilePath}, skipping environment variables`,
+      );
     } else {
-      const envFileContent = fs.readFileSync(resolvedEnvFilePath, 'utf8');
+      const envFileContent = fs.readFileSync(resolvedEnvFilePath, "utf8");
       const envVars = {};
-      
+
       // Parse .env file (simple key=value format)
-      envFileContent.split('\n').forEach(line => {
+      envFileContent.split("\n").forEach((line) => {
         line = line.trim();
         // Skip comments and empty lines
-        if (line && !line.startsWith('#')) {
+        if (line && !line.startsWith("#")) {
           const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
           if (match) {
             const [, key, value] = match;
             // Remove quotes if present (handles both single and double quotes)
-            const cleanValue = value.replace(/^["']|["']$/g, '');
+            const cleanValue = value.replace(/^["']|["']$/g, "");
             envVars[key] = cleanValue;
           }
         }
       });
-      
+
       // Build -e KEY=VALUE flags for allowed env vars only
       // Escape values that contain spaces or special characters
       const envFlagArray = allowedEnvs
-        .filter(key => envVars.hasOwnProperty(key))
-        .map(key => {
+        .filter((key) => envVars.hasOwnProperty(key))
+        .map((key) => {
           const value = envVars[key];
           // Quote value if it contains spaces or special characters
-          const escapedValue = (value.includes(' ') || value.includes('$') || value.includes('`'))
-            ? `"${value.replace(/"/g, '\\"')}"`
-            : value;
+          const escapedValue =
+            value.includes(" ") || value.includes("$") || value.includes("`")
+              ? `"${value.replace(/"/g, '\\"')}"`
+              : value;
           return `-e ${key}=${escapedValue}`;
         });
-      
+
       if (envFlagArray.length > 0) {
-        envFlags = envFlagArray.join(' ');
+        envFlags = envFlagArray.join(" ");
       }
     }
   }
 
   const result = execSync(
     `${phalaBin} deploy --name ${TEST_APP_NAME} --api-token ${PHALA_API_KEY} --compose ${composePath} ${envFlags} --image dstack-0.5.5`,
-    { encoding: 'utf-8', stdio: 'pipe' }
+    { encoding: "utf-8", stdio: "pipe" },
   );
 
   const jsonMatch = result.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('Failed to parse Phala deployment response');
+    throw new Error("Failed to parse Phala deployment response");
   }
   const deployResult = JSON.parse(jsonMatch[0]);
-  
+
   if (!deployResult.success) {
-    throw new Error('Phala deployment failed');
+    throw new Error("Phala deployment failed");
   }
 
   return deployResult.vm_uuid;
@@ -412,14 +438,16 @@ async function deployToPhala() {
 
 // Get app URL from Phala (matches CLI implementation)
 async function getAppUrl(appId) {
-  console.log('Getting the app URL');
+  console.log("Getting the app URL");
   const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
   const maxAttempts = 5;
   const delay = 1000;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await fetch(url, { headers: { 'X-API-Key': PHALA_API_KEY } });
+      const response = await fetch(url, {
+        headers: { "X-API-Key": PHALA_API_KEY },
+      });
       if (!response.ok) {
         if (attempt === maxAttempts) {
           console.log(`HTTP error! status: ${response.status}`);
@@ -430,12 +458,16 @@ async function getAppUrl(appId) {
       if (!data.error) {
         // List all non-empty public URLs
         if (Array.isArray(data.public_urls)) {
-          const validUrls = data.public_urls.filter(u => u.app && u.app.trim() !== '');
+          const validUrls = data.public_urls.filter(
+            (u) => u.app && u.app.trim() !== "",
+          );
           if (validUrls.length > 0) {
             // Print URLs and exit immediately
             console.log(`\nYour app is live at:`);
             validUrls.forEach((urlObj, index) => {
-              console.log(`  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ''}`);
+              console.log(
+                `  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ""}`,
+              );
             });
             return validUrls;
           }
@@ -443,23 +475,27 @@ async function getAppUrl(appId) {
       }
     } catch (e) {
       if (attempt === maxAttempts) {
-        console.log(`Error fetching CVM network info (attempt ${attempt}): ${e.message}`);
+        console.log(
+          `Error fetching CVM network info (attempt ${attempt}): ${e.message}`,
+        );
       }
     }
     if (attempt < maxAttempts) {
-      await new Promise(res => setTimeout(res, delay));
+      await new Promise((res) => setTimeout(res, delay));
     }
   }
-  console.log(`Failed to get app URL: CVM Network Info did not become ready after ${maxAttempts} attempts.`);
+  console.log(
+    `Failed to get app URL: CVM Network Info did not become ready after ${maxAttempts} attempts.`,
+  );
   return null;
 }
 
 // Approve measurements
 async function approveMeasurements(measurements) {
-  console.log('Approving measurements...');
+  console.log("Approving measurements...");
   await account.callFunction({
     contractId: AGENT_CONTRACT_ID,
-    methodName: 'approve_measurements',
+    methodName: "approve_measurements",
     args: { measurements },
     gas: tgasToGas(30),
   });
@@ -467,10 +503,10 @@ async function approveMeasurements(measurements) {
 
 // Remove measurements
 async function removeMeasurements(measurements) {
-  console.log('Removing measurements...');
+  console.log("Removing measurements...");
   await account.callFunction({
     contractId: AGENT_CONTRACT_ID,
-    methodName: 'remove_measurements',
+    methodName: "remove_measurements",
     args: { measurements },
     gas: tgasToGas(30),
   });
@@ -478,10 +514,10 @@ async function removeMeasurements(measurements) {
 
 // Approve PPIDs
 async function approvePpids(ppids) {
-  console.log('Approving PPIDs...');
+  console.log("Approving PPIDs...");
   await account.callFunction({
     contractId: AGENT_CONTRACT_ID,
-    methodName: 'approve_ppids',
+    methodName: "approve_ppids",
     args: { ppids },
     gas: tgasToGas(30),
   });
@@ -489,10 +525,10 @@ async function approvePpids(ppids) {
 
 // Remove PPIDs
 async function removePpids(ppids) {
-  console.log('Removing PPIDs...');
+  console.log("Removing PPIDs...");
   await account.callFunction({
     contractId: AGENT_CONTRACT_ID,
-    methodName: 'remove_ppids',
+    methodName: "remove_ppids",
     args: { ppids },
     gas: tgasToGas(30),
   });
@@ -501,11 +537,9 @@ async function removePpids(ppids) {
 // Check if agent is registered
 async function isAgentRegistered(agentAccountId) {
   try {
-    const result = await provider.callFunction(
-      AGENT_CONTRACT_ID,
-      'get_agent',
-      { account_id: agentAccountId }
-    );
+    const result = await provider.callFunction(AGENT_CONTRACT_ID, "get_agent", {
+      account_id: agentAccountId,
+    });
     return result !== null && result.account_id !== undefined;
   } catch (e) {
     return false;
@@ -514,71 +548,73 @@ async function isAgentRegistered(agentAccountId) {
 
 // Check if app is ready by calling heartbeat endpoint
 async function waitForAppReady(baseUrl, maxAttempts = 20, delay = 10000) {
-  console.log('Waiting for app to be ready...');
-  
+  console.log("Waiting for app to be ready...");
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const response = await fetch(baseUrl, {
-        method: 'GET',
+        method: "GET",
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        if (data.message && data.message.includes('running')) {
-          console.log('✓ App is ready');
+        if (data.message && data.message.includes("running")) {
+          console.log("✓ App is ready");
           return true;
         }
       }
     } catch (e) {
       // Continue retrying
     }
-    
+
     if (attempt < maxAttempts) {
-      await new Promise(res => setTimeout(res, delay));
+      await new Promise((res) => setTimeout(res, delay));
     }
   }
-  
-  throw new Error(`App did not become ready after ${maxAttempts * delay / 1000} seconds`);
+
+  throw new Error(
+    `App did not become ready after ${(maxAttempts * delay) / 1000} seconds`,
+  );
 }
 
 // Call test endpoint
 async function callTestEndpoint(baseUrl, testName) {
   const url = `${baseUrl}/test/${testName}`;
   console.log(`Calling test endpoint: ${url}`);
-  
+
   const maxAttempts = 5;
   const delay = 2000;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
-      
+
       if (response.ok) {
         return await response.json();
       }
-      
+
       if (response.status === 404 && attempt < maxAttempts) {
         // Endpoint not ready yet, retry
-        await new Promise(res => setTimeout(res, delay));
+        await new Promise((res) => setTimeout(res, delay));
         continue;
       }
-      
+
       throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     } catch (e) {
       if (attempt === maxAttempts) {
         throw e;
       }
-      await new Promise(res => setTimeout(res, delay));
+      await new Promise((res) => setTimeout(res, delay));
     }
   }
 }
 
 // Get correct measurements
 function getCorrectMeasurements() {
-  const composePath = resolve(__dirname, 'docker-compose.yaml');
+  const composePath = resolve(__dirname, "docker-compose.yaml");
   return getMeasurements(true, composePath);
 }
 
@@ -594,7 +630,7 @@ function getWrongMeasurementsRtmr2() {
     ...correct,
     rtmrs: {
       ...correct.rtmrs,
-      rtmr2: '0'.repeat(96), // Wrong RTMR2
+      rtmr2: "0".repeat(96), // Wrong RTMR2
     },
   };
 }
@@ -604,27 +640,30 @@ function getWrongMeasurementsKeyProvider() {
   const correct = getCorrectMeasurements();
   return {
     ...correct,
-    key_provider_event_digest: '0'.repeat(96), // Wrong key provider
+    key_provider_event_digest: "0".repeat(96), // Wrong key provider
   };
 }
 
 // Create wrong measurements (wrong app compose)
 function getWrongMeasurementsAppCompose() {
   const correct = getCorrectMeasurements();
-  const composePath = resolve(__dirname, 'docker-compose.yaml');
-  
+  const composePath = resolve(__dirname, "docker-compose.yaml");
+
   // Extract allowed envs and remove one
   const allowedEnvs = extractAllowedEnvs(composePath);
   if (allowedEnvs.length === 0) {
-    throw new Error('No environment variables found in docker-compose.yaml');
+    throw new Error("No environment variables found in docker-compose.yaml");
   }
-  
+
   // Remove the first env variable (or last, doesn't matter - just need to change the hash)
   const modifiedEnvs = allowedEnvs.slice(1); // Remove first env
-  
+
   // Calculate hash with modified envs
-  const wrongAppComposeHash = calculateAppComposeHash(composePath, modifiedEnvs);
-  
+  const wrongAppComposeHash = calculateAppComposeHash(
+    composePath,
+    modifiedEnvs,
+  );
+
   return {
     ...correct,
     app_compose_hash_payload: wrongAppComposeHash, // Wrong app compose (missing one env)
@@ -633,31 +672,31 @@ function getWrongMeasurementsAppCompose() {
 
 // Run a test (assumes appUrl is already available)
 async function runTest(appUrl, testName, setupFn, verifyFn) {
-  console.log(`\n${'='.repeat(70)}`);
+  console.log(`\n${"=".repeat(70)}`);
   console.log(`Running test: ${testName}`);
-  console.log('='.repeat(70));
-  
+  console.log("=".repeat(70));
+
   try {
     // Setup
     if (setupFn) {
       await setupFn();
       // Wait a bit for setup to propagate
-      await new Promise(res => setTimeout(res, 2000));
+      await new Promise((res) => setTimeout(res, 2000));
     }
-    
+
     // Call test endpoint
     const result = await callTestEndpoint(appUrl, testName);
-    
+
     // Verify
     if (verifyFn) {
       await verifyFn(result);
     }
-    
+
     // Check test result
     if (!result.success) {
-      throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+      throw new Error(`Test failed: ${result.error || "Unknown error"}`);
     }
-    
+
     console.log(`✓ Test ${testName} passed`);
     return true;
   } catch (error) {
@@ -670,10 +709,10 @@ async function runTest(appUrl, testName, setupFn, verifyFn) {
 async function test1(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
-  
+
   await runTest(
     appUrl,
-    'successful-registration',
+    "successful-registration",
     async () => {
       // Approve measurements and PPIDs
       await approveMeasurements(correctMeasurements);
@@ -682,22 +721,26 @@ async function test1(appUrl) {
     async (result) => {
       // Check that no errors occurred
       if (result.registrationError) {
-        throw new Error(`Registration should have succeeded, got error: ${result.registrationError}`);
+        throw new Error(
+          `Registration should have succeeded, got error: ${result.registrationError}`,
+        );
       }
       if (result.callError) {
-        throw new Error(`Call should have succeeded, got error: ${result.callError}`);
+        throw new Error(
+          `Call should have succeeded, got error: ${result.callError}`,
+        );
       }
-      
+
       // Verify agent is registered externally
       const registered = await isAgentRegistered(result.agentAccountId);
       if (!registered) {
-        throw new Error('Agent should be registered but is not');
+        throw new Error("Agent should be registered but is not");
       }
-      
+
       // Cleanup: Remove measurements and PPIDs
       await removeMeasurements(correctMeasurements);
       await removePpids(correctPpids);
-    }
+    },
   );
 }
 
@@ -705,10 +748,10 @@ async function test1(appUrl) {
 async function test2(appUrl) {
   const wrongMeasurements = getWrongMeasurementsRtmr2();
   const correctPpids = await getCorrectPpids();
-  
+
   await runTest(
     appUrl,
-    'wrong-measurements-rtmr2',
+    "wrong-measurements-rtmr2",
     async () => {
       // Approve correct PPID, key provider, app compose, but wrong RTMR2
       await approveMeasurements(wrongMeasurements);
@@ -718,25 +761,33 @@ async function test2(appUrl) {
       // Check that agent is not registered
       const registered = await isAgentRegistered(result.agentAccountId);
       if (registered) {
-        throw new Error('Agent should not be registered');
+        throw new Error("Agent should not be registered");
       }
-      
+
       // Verify registrationError matches generic expected_measurements error
-      const registrationError = result.registrationError || '';
-      if (!registrationError.includes('wrong expected_measurements hash') || 
-          !registrationError.includes('found none matched expected one of the embedded TCB info sets')) {
-        throw new Error(`Expected wrong expected_measurements hash error, got: ${registrationError}`);
+      const registrationError = result.registrationError || "";
+      if (
+        !registrationError.includes("wrong expected_measurements hash") ||
+        !registrationError.includes(
+          "found none matched expected one of the embedded TCB info sets",
+        )
+      ) {
+        throw new Error(
+          `Expected wrong expected_measurements hash error, got: ${registrationError}`,
+        );
       }
-      
+
       // Verify callError contains "Agent not registered"
-      const callError = result.callError || '';
-      if (!callError.includes('Agent not registered')) {
-        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      const callError = result.callError || "";
+      if (!callError.includes("Agent not registered")) {
+        throw new Error(
+          `Expected callError to contain 'Agent not registered', got: ${callError}`,
+        );
       }
-      
+
       await removeMeasurements(wrongMeasurements);
       await removePpids(correctPpids);
-    }
+    },
   );
 }
 
@@ -744,10 +795,10 @@ async function test2(appUrl) {
 async function test3(appUrl) {
   const wrongMeasurements = getWrongMeasurementsKeyProvider();
   const correctPpids = await getCorrectPpids();
-  
+
   await runTest(
     appUrl,
-    'wrong-key-provider',
+    "wrong-key-provider",
     async () => {
       await approveMeasurements(wrongMeasurements);
       await approvePpids(correctPpids);
@@ -755,25 +806,33 @@ async function test3(appUrl) {
     async (result) => {
       const registered = await isAgentRegistered(result.agentAccountId);
       if (registered) {
-        throw new Error('Agent should not be registered');
+        throw new Error("Agent should not be registered");
       }
-      
+
       // Verify registrationError matches generic expected_measurements error
-      const registrationError = result.registrationError || '';
-      if (!registrationError.includes('wrong expected_measurements hash') || 
-          !registrationError.includes('found none matched expected one of the embedded TCB info sets')) {
-        throw new Error(`Expected wrong expected_measurements hash error, got: ${registrationError}`);
+      const registrationError = result.registrationError || "";
+      if (
+        !registrationError.includes("wrong expected_measurements hash") ||
+        !registrationError.includes(
+          "found none matched expected one of the embedded TCB info sets",
+        )
+      ) {
+        throw new Error(
+          `Expected wrong expected_measurements hash error, got: ${registrationError}`,
+        );
       }
-      
+
       // Verify callError contains "Agent not registered"
-      const callError = result.callError || '';
-      if (!callError.includes('Agent not registered')) {
-        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      const callError = result.callError || "";
+      if (!callError.includes("Agent not registered")) {
+        throw new Error(
+          `Expected callError to contain 'Agent not registered', got: ${callError}`,
+        );
       }
-      
+
       await removeMeasurements(wrongMeasurements);
       await removePpids(correctPpids);
-    }
+    },
   );
 }
 
@@ -781,10 +840,10 @@ async function test3(appUrl) {
 async function test4(appUrl) {
   const wrongMeasurements = getWrongMeasurementsAppCompose();
   const correctPpids = await getCorrectPpids();
-  
+
   await runTest(
     appUrl,
-    'wrong-app-compose',
+    "wrong-app-compose",
     async () => {
       await approveMeasurements(wrongMeasurements);
       await approvePpids(correctPpids);
@@ -792,36 +851,44 @@ async function test4(appUrl) {
     async (result) => {
       const registered = await isAgentRegistered(result.agentAccountId);
       if (registered) {
-        throw new Error('Agent should not be registered');
+        throw new Error("Agent should not be registered");
       }
-      
+
       // Verify registrationError matches generic expected_measurements error
-      const registrationError = result.registrationError || '';
-      if (!registrationError.includes('wrong expected_measurements hash') || 
-          !registrationError.includes('found none matched expected one of the embedded TCB info sets')) {
-        throw new Error(`Expected wrong expected_measurements hash error, got: ${registrationError}`);
+      const registrationError = result.registrationError || "";
+      if (
+        !registrationError.includes("wrong expected_measurements hash") ||
+        !registrationError.includes(
+          "found none matched expected one of the embedded TCB info sets",
+        )
+      ) {
+        throw new Error(
+          `Expected wrong expected_measurements hash error, got: ${registrationError}`,
+        );
       }
-      
+
       // Verify callError contains "Agent not registered"
-      const callError = result.callError || '';
-      if (!callError.includes('Agent not registered')) {
-        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      const callError = result.callError || "";
+      if (!callError.includes("Agent not registered")) {
+        throw new Error(
+          `Expected callError to contain 'Agent not registered', got: ${callError}`,
+        );
       }
-      
+
       await removeMeasurements(wrongMeasurements);
       await removePpids(correctPpids);
-    }
+    },
   );
 }
 
 // Test 5: Can't verify with wrong PPID
 async function test5(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
-  const wrongPpid = ['00000000000000000000000000000000']; // Wrong PPID
-  
+  const wrongPpid = ["00000000000000000000000000000000"]; // Wrong PPID
+
   await runTest(
     appUrl,
-    'wrong-ppid',
+    "wrong-ppid",
     async () => {
       await approveMeasurements(correctMeasurements);
       await approvePpids(wrongPpid);
@@ -829,25 +896,34 @@ async function test5(appUrl) {
     async (result) => {
       const registered = await isAgentRegistered(result.agentAccountId);
       if (registered) {
-        throw new Error('Agent should not be registered');
+        throw new Error("Agent should not be registered");
       }
-      
+
       // Verify registrationError contains PPID not in allowed list custom error
-      const registrationError = result.registrationError || '';
-      if (!registrationError.toLowerCase().includes('ppid') || !registrationError.toLowerCase().includes('not in the allowed ppids list')) {
-        throw new Error(`Expected error about PPID not in allowed list, got: ${registrationError}`);
+      const registrationError = result.registrationError || "";
+      if (
+        !registrationError.toLowerCase().includes("ppid") ||
+        !registrationError
+          .toLowerCase()
+          .includes("not in the allowed ppids list")
+      ) {
+        throw new Error(
+          `Expected error about PPID not in allowed list, got: ${registrationError}`,
+        );
       }
-      
+
       // Verify callError contains "Agent not registered"
-      const callError = result.callError || '';
-      if (!callError.includes('Agent not registered')) {
-        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      const callError = result.callError || "";
+      if (!callError.includes("Agent not registered")) {
+        throw new Error(
+          `Expected callError to contain 'Agent not registered', got: ${callError}`,
+        );
       }
-      
+
       // Cleanup: Remove measurements and wrong PPID
       await removeMeasurements(correctMeasurements);
       await removePpids(wrongPpid);
-    }
+    },
   );
 }
 
@@ -855,31 +931,39 @@ async function test5(appUrl) {
 async function test6(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
-  
+
   await runTest(
     appUrl,
-    'different-account-id',
+    "different-account-id",
     async () => {
       await approveMeasurements(correctMeasurements);
       await approvePpids(correctPpids);
     },
     async (result) => {
       // Verify registrationError matches WrongHash format with report_data
-      const registrationError = result.registrationError || '';
-      if (!registrationError.match(/wrong report_data hash \(found .+ expected .+\)/i)) {
-        throw new Error(`Expected WrongHash error with report_data, got: ${registrationError}`);
+      const registrationError = result.registrationError || "";
+      if (
+        !registrationError.match(
+          /wrong report_data hash \(found .+ expected .+\)/i,
+        )
+      ) {
+        throw new Error(
+          `Expected WrongHash error with report_data, got: ${registrationError}`,
+        );
       }
-      
+
       // Verify callError contains "Agent not registered"
-      const callError = result.callError || '';
-      if (!callError.includes('Agent not registered')) {
-        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      const callError = result.callError || "";
+      if (!callError.includes("Agent not registered")) {
+        throw new Error(
+          `Expected callError to contain 'Agent not registered', got: ${callError}`,
+        );
       }
-      
+
       // Cleanup: Remove measurements and PPIDs
       await removeMeasurements(correctMeasurements);
       await removePpids(correctPpids);
-    }
+    },
   );
 }
 
@@ -887,56 +971,62 @@ async function test6(appUrl) {
 async function test7(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
-  
-  console.log(`\n${'='.repeat(70)}`);
+
+  console.log(`\n${"=".repeat(70)}`);
   console.log(`Running test: measurements-removed`);
-  console.log('='.repeat(70));
-  
+  console.log("=".repeat(70));
+
   try {
     // Step 1: Approve measurements and PPIDs
     await approveMeasurements(correctMeasurements);
     await approvePpids(correctPpids);
-    await new Promise(res => setTimeout(res, 2000));
-    
+    await new Promise((res) => setTimeout(res, 2000));
+
     // Step 2: Register the agent (should succeed)
     const registerUrl = `${appUrl}/test/register-agent/measurements-removed`;
     console.log(`Registering agent: ${registerUrl}`);
     const registerResponse = await fetch(registerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
-    
+
     if (!registerResponse.ok) {
       const errorText = await registerResponse.text();
-      throw new Error(`Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`);
+      throw new Error(
+        `Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`,
+      );
     }
-    
+
     const registerResult = await registerResponse.json();
     if (!registerResult.success || registerResult.registrationError) {
-      throw new Error(`Registration should have succeeded, got error: ${registerResult.registrationError || 'Unknown error'}`);
+      throw new Error(
+        `Registration should have succeeded, got error: ${registerResult.registrationError || "Unknown error"}`,
+      );
     }
-    
+
     // Step 3: Remove measurements (this is the test scenario)
     await removeMeasurements(correctMeasurements);
-    await new Promise(res => setTimeout(res, 2000));
-    
+    await new Promise((res) => setTimeout(res, 2000));
+
     // Step 4: Try to make a call (should fail because measurements were removed)
-    const result = await callTestEndpoint(appUrl, 'measurements-removed');
-    
+    const result = await callTestEndpoint(appUrl, "measurements-removed");
+
     // Verify error contains "Agent not registered with approved measurements"
-    const errorMsg = result.callError || '';
-    if (!errorMsg.includes('Agent not registered with approved measurements')) {
-      throw new Error(`Expected error 'Agent not registered with approved measurements', got: ${errorMsg}`);
+    const errorMsg = result.callError || "";
+    if (!errorMsg.includes("Agent not registered with approved measurements")) {
+      throw new Error(
+        `Expected error 'Agent not registered with approved measurements', got: ${errorMsg}`,
+      );
     }
-    
+
     // Verify test result
     if (!result.success) {
-      throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+      throw new Error(`Test failed: ${result.error || "Unknown error"}`);
     }
-    
+
     // Cleanup: Remove PPIDs
     await removePpids(correctPpids);
-    
+
     console.log(`✓ Test measurements-removed passed`);
     return true;
   } catch (error) {
@@ -949,56 +1039,62 @@ async function test7(appUrl) {
 async function test8(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
-  
-  console.log(`\n${'='.repeat(70)}`);
+
+  console.log(`\n${"=".repeat(70)}`);
   console.log(`Running test: ppid-removed`);
-  console.log('='.repeat(70));
-  
+  console.log("=".repeat(70));
+
   try {
     // Step 1: Approve measurements and PPIDs
     await approveMeasurements(correctMeasurements);
     await approvePpids(correctPpids);
-    await new Promise(res => setTimeout(res, 2000));
-    
+    await new Promise((res) => setTimeout(res, 2000));
+
     // Step 2: Register the agent (should succeed)
     const registerUrl = `${appUrl}/test/register-agent/ppid-removed`;
     console.log(`Registering agent: ${registerUrl}`);
     const registerResponse = await fetch(registerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
-    
+
     if (!registerResponse.ok) {
       const errorText = await registerResponse.text();
-      throw new Error(`Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`);
+      throw new Error(
+        `Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`,
+      );
     }
-    
+
     const registerResult = await registerResponse.json();
     if (!registerResult.success || registerResult.registrationError) {
-      throw new Error(`Registration should have succeeded, got error: ${registerResult.registrationError || 'Unknown error'}`);
+      throw new Error(
+        `Registration should have succeeded, got error: ${registerResult.registrationError || "Unknown error"}`,
+      );
     }
-    
+
     // Step 3: Remove PPID (this is the test scenario)
     await removePpids(correctPpids);
-    await new Promise(res => setTimeout(res, 2000));
-    
+    await new Promise((res) => setTimeout(res, 2000));
+
     // Step 4: Try to make a call (should fail because PPID was removed)
-    const result = await callTestEndpoint(appUrl, 'ppid-removed');
-    
+    const result = await callTestEndpoint(appUrl, "ppid-removed");
+
     // Verify error contains "Agent not registered with approved PPID"
-    const errorMsg = result.callError || '';
-    if (!errorMsg.includes('Agent not registered with approved PPID')) {
-      throw new Error(`Expected error 'Agent not registered with approved PPID', got: ${errorMsg}`);
+    const errorMsg = result.callError || "";
+    if (!errorMsg.includes("Agent not registered with approved PPID")) {
+      throw new Error(
+        `Expected error 'Agent not registered with approved PPID', got: ${errorMsg}`,
+      );
     }
-    
+
     // Verify test result
     if (!result.success) {
-      throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+      throw new Error(`Test failed: ${result.error || "Unknown error"}`);
     }
-    
+
     // Cleanup: Remove measurements
     await removeMeasurements(correctMeasurements);
-    
+
     console.log(`✓ Test ppid-removed passed`);
     return true;
   } catch (error) {
@@ -1011,10 +1107,10 @@ async function test8(appUrl) {
 async function test9(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
-  
+
   await runTest(
     appUrl,
-    'unique-keys',
+    "unique-keys",
     async () => {
       await approveMeasurements(correctMeasurements);
       await approvePpids(correctPpids);
@@ -1022,101 +1118,109 @@ async function test9(appUrl) {
     async (result) => {
       // Verify all keys are unique
       if (!result.allKeysUnique) {
-        throw new Error('Expected all keys to be unique, but duplicates were found');
+        throw new Error(
+          "Expected all keys to be unique, but duplicates were found",
+        );
       }
-      
+
       // Verify each agent has 3 keys
       if (!result.agent1Keys || result.agent1Keys.length !== 3) {
-        throw new Error(`Agent 1 should have 3 keys, got ${result.agent1Keys?.length || 0}`);
+        throw new Error(
+          `Agent 1 should have 3 keys, got ${result.agent1Keys?.length || 0}`,
+        );
       }
-      
+
       if (!result.agent2Keys || result.agent2Keys.length !== 3) {
-        throw new Error(`Agent 2 should have 3 keys, got ${result.agent2Keys?.length || 0}`);
+        throw new Error(
+          `Agent 2 should have 3 keys, got ${result.agent2Keys?.length || 0}`,
+        );
       }
 
       // Cleanup: Remove measurements and PPIDs
       await removeMeasurements(correctMeasurements);
       await removePpids(correctPpids);
-    }
+    },
   );
 }
 
 // Main execution
 async function main() {
-  console.log('\n' + '='.repeat(70));
-  console.log('Starting Integration Tests');
-  console.log('='.repeat(70));
-  
+  console.log("\n" + "=".repeat(70));
+  console.log("Starting Integration Tests");
+  console.log("=".repeat(70));
+
   // Update .env file with generated contract ID
   updateEnvFile();
-  
+
   // Deploy contract to testnet (skip if SKIP_CONTRACT_DEPLOYMENT is true)
   if (!SKIP_CONTRACT_DEPLOYMENT) {
-    console.log('\nDeploying contract to testnet...');
+    console.log("\nDeploying contract to testnet...");
     await createContractAccount();
     await deployContract();
     await initializeContract();
-    console.log('✓ Contract deployment complete\n');
+    console.log("✓ Contract deployment complete\n");
   } else {
-    console.log('\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n');
+    console.log(
+      "\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n",
+    );
   }
-  
+
   // Deploy to Phala or use provided endpoint
   let appUrl;
   if (SKIP_PHALA_DEPLOYMENT) {
-    console.log('⚠ Skipping Phala deployment (TEST_APP_URL provided)');
+    console.log("⚠ Skipping Phala deployment (TEST_APP_URL provided)");
     appUrl = TEST_APP_URL.trim();
     console.log(`✓ Using provided app URL: ${appUrl}`);
   } else {
     // Build, push, and update docker-compose.yaml with the test image
-    console.log('\nBuilding and pushing test image...');
+    console.log("\nBuilding and pushing test image...");
     await buildAndPushTestImage();
-    console.log('✓ Test image built and pushed\n');
-    
-    console.log('Deploying test image to Phala...');
+    console.log("✓ Test image built and pushed\n");
+
+    console.log("Deploying test image to Phala...");
     const appId = await deployToPhala();
     const appUrls = await getAppUrl(appId);
     if (!appUrls || appUrls.length === 0) {
-      throw new Error('Failed to get app URL from Phala');
+      throw new Error("Failed to get app URL from Phala");
     }
     appUrl = appUrls[0].app;
     console.log(`✓ App deployed at: ${appUrl}`);
   }
-  
+
   // Wait for the app to be ready using heartbeat
   await waitForAppReady(appUrl);
-  
+
   const tests = [
-    { name: 'Test 1: Successful registration', fn: test1 },
-    { name: 'Test 2: Wrong measurements (RTMR2)', fn: test2 },
-    { name: 'Test 3: Wrong key provider', fn: test3 },
-    { name: 'Test 4: Wrong app compose', fn: test4 },
-    { name: 'Test 5: Wrong PPID', fn: test5 },
-    { name: 'Test 6: Different account ID', fn: test6 },
-    { name: 'Test 7: Measurements removed', fn: test7 },
-    { name: 'Test 8: PPID removed', fn: test8 },
-    { name: 'Test 9: Unique keys across agent instances', fn: test9 },
+    { name: "Test 1: Successful registration", fn: test1 },
+    { name: "Test 2: Wrong measurements (RTMR2)", fn: test2 },
+    { name: "Test 3: Wrong key provider", fn: test3 },
+    { name: "Test 4: Wrong app compose", fn: test4 },
+    { name: "Test 5: Wrong PPID", fn: test5 },
+    { name: "Test 6: Different account ID", fn: test6 },
+    { name: "Test 7: Measurements removed", fn: test7 },
+    { name: "Test 8: PPID removed", fn: test8 },
+    { name: "Test 9: Unique keys across agent instances", fn: test9 },
   ];
-  
+
   for (let i = 0; i < tests.length; i++) {
     const test = tests[i];
     try {
       await test.fn(appUrl);
-      
+
       // Add 1 second delay between tests (except after the last one)
       if (i < tests.length - 1) {
-        await new Promise(res => setTimeout(res, 1000));
+        await new Promise((res) => setTimeout(res, 1000));
       }
     } catch (error) {
       console.error(`\n✗ ${test.name} FAILED: ${error.message}`);
       throw error;
     }
   }
-  
-  console.log('\n✓ All tests passed!');
+
+  console.log("\n✓ All tests passed!");
 }
 
-main().catch(error => {
-  console.error('Fatal error:', error);
+main().catch((error) => {
+  console.error("Fatal error:", error);
   process.exit(1);
 });

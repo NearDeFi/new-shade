@@ -3176,7 +3176,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shade-contract"
+name = "shade-contract-template"
 version = "0.1.0"
 dependencies = [
  "hex",

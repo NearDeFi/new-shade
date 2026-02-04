@@ -1,49 +1,50 @@
 {
-    "type": "module",
-    "name": "@neardefi/shade-agent-cli",
-    "version": "1.0.2",
-    "main": "src/cli.js",
-    "author": "Matt Lockyer <github.com/mattlockyer>",
-    "license": "MIT",
-    "dependencies": {
-        "@inquirer/confirm": "^6.0.3",
-        "@inquirer/input": "^5.0.3",
-        "@inquirer/password": "^5.0.3",
-        "@inquirer/select": "^5.0.3",
-        "@napi-rs/keyring": "^1.2.0",
-        "@near-js/accounts": "^2.5.1",
-        "@near-js/crypto": "^2.5.1",
-        "@near-js/providers": "^2.5.1",
-        "@near-js/signers": "^2.5.1",
-        "@near-js/tokens": "^2.5.1",
-        "@near-js/utils": "^2.5.1",
-        "bs58": "^6.0.0",
-        "chalk": "^5.4.1",
-        "commander": "^14.0.0",
-        "dotenv": "^16.5.0",
-        "phala": "1.1.2",
-        "random-words": "^2.0.1",
-        "yaml": "^2.5.0"
-    },
-    "bin": {
-        "shade": "src/cli.js"
-    },
-    "description": "This cli will help you launch shade agents",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/NearDeFi/shade-agent-cli.git"
-    },
-    "keywords": [
-        "AI",
-        "agents",
-        "crypto",
-        "shade"
-    ],
-    "bugs": {
-        "url": "https://github.com/NearDeFi/shade-agent-cli/issues"
-    },
-    "homepage": "https://github.com/NearDeFi/shade-agent-cli#readme",
-    "scripts": {
-        "build": "rm -rf dist && mkdir dist && cp package.json ./dist/package.json && cp -r src ./dist/src"
-    }
+  "name": "@neardefi/shade-agent-cli",
+  "version": "1.0.2",
+  "description": "A CLI for deploying Shade Agents",
+  "author": "Matt Lockyer <github.com/mattlockyer>",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/src/cli.js",
+  "bin": {
+    "shade": "dist/src/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NearDeFi/shade-agent-framework.git",
+    "directory": "shade-agent-cli"
+  },
+  "scripts": {
+    "build": "rm -rf dist && mkdir -p dist/src && cp -r src/* dist/src/",
+    "prepublishOnly": "npm run build",
+    "publish": "npm publish --access public"
+  },
+  "dependencies": {
+    "@inquirer/confirm": "^6.0.3",
+    "@inquirer/input": "^5.0.3",
+    "@inquirer/select": "^5.0.3",
+    "@napi-rs/keyring": "^1.2.0",
+    "@near-js/accounts": "^2.5.1",
+    "@near-js/crypto": "^2.5.1",
+    "@near-js/providers": "^2.5.1",
+    "@near-js/signers": "^2.5.1",
+    "@near-js/tokens": "^2.5.1",
+    "bs58": "^6.0.0",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "phala": "1.1.2",
+    "random-words": "^2.0.1",
+    "yaml": "^2.5.0"
+  },
+  "keywords": [
+    "AI",
+    "agents",
+    "crypto",
+    "shade",
+    "near",
+    "shade-agent"
+  ]
 }

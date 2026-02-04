@@ -1,17 +1,14 @@
 {
   "name": "my-shade-agent-app",
   "version": "1.0.0",
+  "description": "Shade agent application template with local dependencies",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/index.ts",
     "build": "tsc",
+    "dev": "tsx src/index.ts",
     "start": "tsx dist/index.js",
-    "docker:build": "sudo docker build --platform linux/amd64 -t pivortex/my-app:latest .",
-    "docker:build:no-cache": "sudo docker build --no-cache --platform linux/amd64 -t pivortex/my-app:latest .",
-    "docker:push": "sudo docker push pivortex/my-app",
-    "docker:prune": "sudo docker system prune",
-    "phala:deploy": "phala cvms create --name my-app --vcpu 1 --compose ./docker-compose.yaml --env-file ./.env.development.local",
     "shade:cli": "node ../shade-agent-cli/src/cli.js"
   },
   "dependencies": {

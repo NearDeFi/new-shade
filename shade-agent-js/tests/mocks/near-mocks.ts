@@ -1,9 +1,9 @@
-import { vi } from 'vitest';
-import type { Provider } from '@near-js/providers';
-import type { Account } from '@near-js/accounts';
-import type { KeyPairSigner } from '@near-js/signers';
+import { vi } from "vitest";
+import type { Provider } from "@near-js/providers";
+import type { Account } from "@near-js/accounts";
+import type { KeyPairSigner } from "@near-js/signers";
 
-export const createMockProvider = (networkId: string = 'testnet'): Provider => {
+export const createMockProvider = (networkId: string = "testnet"): Provider => {
   return {
     getNetworkId: vi.fn().mockResolvedValue(networkId),
     callFunction: vi.fn(),
@@ -13,7 +13,7 @@ export const createMockProvider = (networkId: string = 'testnet'): Provider => {
 
 export const createMockAccount = (): Account => {
   return {
-    accountId: 'default-agent-address',
+    accountId: "default-agent-address",
     getBalance: vi.fn(),
     callFunction: vi.fn(),
     transfer: vi.fn(),

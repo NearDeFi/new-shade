@@ -1,5 +1,5 @@
-import { vi } from 'vitest';
-import type { DstackClient, TcbInfoV05x } from '@phala/dstack-sdk';
+import { vi } from "vitest";
+import type { DstackClient, TcbInfoV05x } from "@phala/dstack-sdk";
 
 export const createMockDstackClient = (): DstackClient => {
   return {
@@ -10,7 +10,7 @@ export const createMockDstackClient = (): DstackClient => {
       key: new Uint8Array(32).fill(1),
     }),
     getQuote: vi.fn().mockResolvedValue({
-      quote: '0'.repeat(200),
+      quote: "0".repeat(200),
     }),
   } as unknown as DstackClient;
 };
@@ -18,19 +18,19 @@ export const createMockDstackClient = (): DstackClient => {
 // Creates a mock DstackTcbInfo (TcbInfoV05x) for testing
 // Allows overriding specific fields while providing defaults for the rest
 export function createMockDstackTcbInfo(
-  overrides?: Partial<TcbInfoV05x>
+  overrides?: Partial<TcbInfoV05x>,
 ): TcbInfoV05x {
   return {
-    mrtd: '',
-    rtmr0: '',
-    rtmr1: '',
-    rtmr2: '',
-    rtmr3: '',
-    mr_aggregated: '',
-    os_image_hash: '',
-    compose_hash: '',
-    device_id: '',
-    app_compose: '',
+    mrtd: "",
+    rtmr0: "",
+    rtmr1: "",
+    rtmr2: "",
+    rtmr3: "",
+    mr_aggregated: "",
+    os_image_hash: "",
+    compose_hash: "",
+    device_id: "",
+    app_compose: "",
     event_log: [],
     ...overrides,
   };
@@ -50,15 +50,15 @@ export function createMockQuoteCollateral(overrides?: {
   qe_identity_signature?: string;
 }) {
   return {
-    pck_crl_issuer_chain: '',
-    root_ca_crl: '',
-    pck_crl: '',
-    tcb_info_issuer_chain: '',
-    tcb_info: '',
-    tcb_info_signature: '',
-    qe_identity_issuer_chain: '',
-    qe_identity: '',
-    qe_identity_signature: '',
+    pck_crl_issuer_chain: "",
+    root_ca_crl: "",
+    pck_crl: "",
+    tcb_info_issuer_chain: "",
+    tcb_info: "",
+    tcb_info_signature: "",
+    qe_identity_issuer_chain: "",
+    qe_identity: "",
+    qe_identity_signature: "",
     ...overrides,
   };
 }
@@ -69,8 +69,9 @@ export function createMockAttestationResponse(overrides?: {
   quote_collateral?: ReturnType<typeof createMockQuoteCollateral>;
 }) {
   return {
-    checksum: overrides?.checksum ?? 'mock-checksum-123',
-    quote_collateral: overrides?.quote_collateral ?? createMockQuoteCollateral(),
+    checksum: overrides?.checksum ?? "mock-checksum-123",
+    quote_collateral:
+      overrides?.quote_collateral ?? createMockQuoteCollateral(),
   };
 }
 

@@ -7,7 +7,7 @@ network: testnet
 # Path to docker-compose file
 docker_compose_path: ./docker-compose.yaml
 
-agent_contract: 
+agent_contract:
   # NEAR Account Id of the contract
   # Fill this out with a unique contract id for your agent contract
   # For example: example-contract-123.testnet
@@ -27,11 +27,11 @@ agent_contract:
     # Option 1: Build contract from source and deploy
     deploy_from_source:
       enabled: false
-      source_path: ./shade-contract-template
+      source_path: ../shade-agent-contract
     # Option 2: Use pre-built WASM file
     deploy_from_wasm:
       enabled: true
-      wasm_path: ./shade-contract-template/target/near/shade_contract.wasm
+      wasm_path: ../shade-agent-contract/target/near/shade_contract.wasm
     # Option 3: Use a deployed global contract, specifying it by its hash
     use_global_by_hash:
       enabled: false

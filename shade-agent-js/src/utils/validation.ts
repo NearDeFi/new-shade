@@ -16,14 +16,9 @@ export async function validateShadeConfig(config: ShadeConfig): Promise<void> {
   // Validate sponsor configuration if provided
   if (config.sponsor) {
     if (!config.sponsor.accountId || config.sponsor.accountId.trim() === "") {
-      throw new Error(
-        "sponsor.accountId is required when sponsor is provided",
-      );
+      throw new Error("sponsor.accountId is required when sponsor is provided");
     }
-    if (
-      !config.sponsor.privateKey ||
-      config.sponsor.privateKey.trim() === ""
-    ) {
+    if (!config.sponsor.privateKey || config.sponsor.privateKey.trim() === "") {
       throw new Error(
         "sponsor.privateKey is required when sponsor is provided",
       );

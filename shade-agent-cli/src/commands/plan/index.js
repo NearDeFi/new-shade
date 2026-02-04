@@ -1,317 +1,430 @@
-import { Command } from 'commander';
-import chalk from 'chalk';
-import { getDeploymentConfig, getNearCredentialsOptional, getPhalaKeyOptional } from '../../utils/config.js';
-import { replacePlaceholders } from '../../utils/placeholders.js';
-import { createCommandErrorHandler } from '../../utils/error-handler.js';
-import { getMeasurements } from '../../utils/measurements.js';
-import { getPpids } from '../../utils/ppids.js';
+import { Command } from "commander";
+import chalk from "chalk";
+import {
+  getDeploymentConfig,
+  getNearCredentialsOptional,
+  getPhalaKeyOptional,
+} from "../../utils/config.js";
+import { replacePlaceholders } from "../../utils/placeholders.js";
+import { createCommandErrorHandler } from "../../utils/error-handler.js";
+import { getMeasurements } from "../../utils/measurements.js";
+import { getPpids } from "../../utils/ppids.js";
 
 // Format JSON args nicely
 function formatArgs(args) {
-    return JSON.stringify(args, null, 2);
+  return JSON.stringify(args, null, 2);
 }
 
 // Wrap text to fit within maxWidth characters
 function wrapText(text, maxWidth = 70, indent = 0) {
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-    const indentStr = ' '.repeat(indent);
-    
-    for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        // For wrapped lines (after first line), account for indent
-        const effectiveMaxWidth = lines.length > 0 ? maxWidth - indent : maxWidth;
-        if (testLine.length <= effectiveMaxWidth) {
-            currentLine = testLine;
-        } else {
-            if (currentLine) {
-                lines.push(currentLine);
-            }
-            // If a single word is longer than maxWidth, just use it as-is
-            currentLine = word.length > maxWidth ? word : word;
-        }
-    }
-    
-    if (currentLine) {
+  const words = text.split(" ");
+  const lines = [];
+  let currentLine = "";
+  const indentStr = " ".repeat(indent);
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    // For wrapped lines (after first line), account for indent
+    const effectiveMaxWidth = lines.length > 0 ? maxWidth - indent : maxWidth;
+    if (testLine.length <= effectiveMaxWidth) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
         lines.push(currentLine);
+      }
+      // If a single word is longer than maxWidth, just use it as-is
+      currentLine = word.length > maxWidth ? word : word;
     }
-    
-    // Apply indentation to wrapped lines (skip first line which has bullet)
-    return lines.map((line, index) => {
-        if (indent > 0 && index > 0) {
-            return indentStr + line;
-        }
-        return line;
-    });
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  // Apply indentation to wrapped lines (skip first line which has bullet)
+  return lines.map((line, index) => {
+    if (indent > 0 && index > 0) {
+      return indentStr + line;
+    }
+    return line;
+  });
 }
 
 // Log wrapped text
 function logWrapped(text, maxWidth = 70, indent = 0) {
-    const lines = wrapText(text, maxWidth, indent);
-    lines.forEach(line => console.log(line));
+  const lines = wrapText(text, maxWidth, indent);
+  lines.forEach((line) => console.log(line));
 }
 
 export function planCommand() {
-    const cmd = new Command('plan');
-    cmd.description('Show the deployment plan');
-    
-    // Handle errors for invalid arguments
-    cmd.configureOutput(createCommandErrorHandler('plan', { maxArgs: 0 }));
-    
-    cmd.action(async () => {
-        try {
-            // Load deployment config 
-            const deployment = getDeploymentConfig();
-            
-            // Optionally load NEAR credentials to check if they exist and get account ID
-            const credentials = await getNearCredentialsOptional(deployment.network);
-            const accountId = credentials?.accountId || null;
-            
-            // Optionally load PHALA key
-            const phalaKey = await getPhalaKeyOptional();
-            
-            // Start building the plan output
-            console.log('\n' + chalk.cyan.bold('═'.repeat(70)));
-            console.log(chalk.cyan.bold('🔎 DEPLOYMENT PLAN'));
-            console.log(chalk.cyan.bold('═'.repeat(70)) + '\n');
-            
-            // 1. Docker Image
-            console.log(chalk.cyan.bold('🐳 Docker Image'));
-            console.log(chalk.gray('─'.repeat(70)));
-            console.log('');
-            if (deployment.environment === 'TEE') {
-                if (deployment.build_docker_image) {
-                    const cacheText = deployment.build_docker_image.cache ? chalk.yellow('with caching') : chalk.yellow('without caching');
-                    logWrapped(`• A docker image for your agent will be built according to the ${chalk.yellow(deployment.build_docker_image.dockerfile_path)} file, ${cacheText} and published to ${chalk.yellow(deployment.build_docker_image.tag)}.`, 70, 2);
-                    console.log('');
-                    logWrapped(`• The docker image hash will be updated in your ${chalk.yellow(deployment.docker_compose_path)} file.`, 70, 2);
-                } else {
-                    logWrapped(chalk.gray('• A new docker image won\'t be built.'), 70, 2);
-                }
-            } else {
-                logWrapped(chalk.gray('• A docker image won\'t be built because the environment is local.'), 70, 2);
-            }
-            console.log('');
-            console.log('');
-            
-            // 2. Contract Deployment
-            if (deployment.agent_contract.deploy_custom) {
-                console.log(chalk.cyan.bold('📜 Agent Contract Deployment'));
-                console.log(chalk.gray('─'.repeat(70)));
-                console.log('');
-                
-                const contractId = deployment.agent_contract.contract_id;
-                const network = deployment.network;
-                const fundingAmount = deployment.agent_contract.deploy_custom.funding_amount;
-                
-                let fundingLine = `with a balance of ${chalk.yellow(fundingAmount + ' NEAR')}`;
-                if (accountId) {
-                    fundingLine += `, funded from your master account ${chalk.yellow(accountId)}`;
-                } else {
-                    fundingLine += `, funded from your master account`;
-                }
-                fundingLine += '.';
-                
-                logWrapped(`• The contract account ${chalk.yellow(contractId)} will be created on ${chalk.yellow(network)} ${fundingLine} If the contract account already exists it will be cleared of its existing contract.`, 70, 2);
-                console.log('');
-                
-                // Deploy from source, WASM, or global hash
-                if (deployment.agent_contract.deploy_custom.source_path) {
-                    const sourcePath = deployment.agent_contract.deploy_custom.source_path;
-                    logWrapped(`• The agent contract in the ${chalk.yellow(sourcePath)} directory will be compiled then deployed to ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
-                } else if (deployment.agent_contract.deploy_custom.wasm_path) {
-                    const wasmPath = deployment.agent_contract.deploy_custom.wasm_path;
-                    logWrapped(`• The agent contract from the WASM file ${chalk.yellow(wasmPath)} will be deployed to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
-                } else if (deployment.agent_contract.deploy_custom.global_hash) {
-                    const globalHash = deployment.agent_contract.deploy_custom.global_hash;
-                    logWrapped(`• The agent contract will be deployed using the global hash ${chalk.yellow(globalHash)} to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`, 70, 2);
-                }
-                
-                console.log('');
-                
-                // Initialization
-                if (deployment.agent_contract.deploy_custom.init) {
-                    const initCfg = deployment.agent_contract.deploy_custom.init;
-                    const replacements = {};
-                    replacements['<MASTER_ACCOUNT_ID>'] = accountId;
-                    replacements['<DEFAULT_MPC_CONTRACT_ID>'] = deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
-                    replacements['<REQUIRES_TEE>'] = deployment.environment === 'TEE';
-                    const resolvedArgs = replacePlaceholders(initCfg.args, replacements);
-                    
-                    logWrapped(`• The agent contract will be initialized using the '${chalk.yellow(initCfg.method_name)}' method with arguments:`, 70, 2);
-                    // Indent JSON arguments
-                    const jsonLines = formatArgs(resolvedArgs).split('\n');
-                    jsonLines.forEach(line => {
-                        console.log('  ' + chalk.magenta(line));
-                    });
-                    if (!accountId) {
-                        console.log('');
-                        const noteMsg = `The ${chalk.magenta('<MASTER_ACCOUNT_ID>')} will be replaced once the master account is set.`;
-                        const lines = wrapText(noteMsg, 70 - 2, 0);
-                        lines.forEach(line => console.log('  ' + line));
-                    }
-                    console.log('');
-                    
-                    // Check if REQUIRES_TEE is in the args
-                    const argsStr = typeof initCfg.args === 'string' ? initCfg.args : JSON.stringify(initCfg.args);
-                    if (argsStr.includes('<REQUIRES_TEE>')) {
-                        if (deployment.environment === 'TEE') {
-                            logWrapped(`• The contract ${chalk.yellow('requires')} the agent to be running in a TEE.`, 70, 2);
-                        } else {
-                            logWrapped(`• The contract ${chalk.yellow('doesn\'t require')} the agent to be running in a TEE.`, 70, 2);
-                        }
-                        console.log('');
-                    }
-                } else {
-                    logWrapped(`• The agent contract ${chalk.yellow('won\'t be initialized')}.`, 70, 2);
-                    console.log('');
-                }
-                
-                // Contract locking status
-                if (deployment.agent_contract.deploy_custom.delete_key) {
-                    logWrapped(`• The contract account ${chalk.yellow('will be locked')} (access key deleted) after deployment.`, 70, 2);
-                } else {
-                    logWrapped(`• The contract account ${chalk.yellow('won\'t be locked')}.`, 70, 2);
-                }
-                console.log('');
-            } else {
-                console.log(chalk.cyan.bold('📜 Agent Contract Deployment'));
-                console.log(chalk.gray('─'.repeat(70)));
-                console.log('');
-                const contractId = deployment.agent_contract.contract_id;
-                const network = deployment.network;
-                logWrapped(`• An existing agent contract deployed at ${chalk.yellow(contractId)} on ${chalk.yellow(network)} will be used. You should check that the agent contract is configured for the desired environment (local or TEE).`, 70, 2);
-                console.log('');
-            }
-            
-            console.log('');
-            // 3. Approve Measurements
-            if (deployment.approve_measurements) {
-                console.log(chalk.cyan.bold('✓ Measurements Approval'));
-                console.log(chalk.gray('─'.repeat(70)));
-                console.log('');
-                
-                const approveCfg = deployment.approve_measurements;
-                
-                logWrapped(`• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with measurements:`, 70, 2);
-                
-                // Add measurements message below args in same bullet point
-                if (deployment.environment === 'TEE') {
-                    console.log('');
-                    if (deployment.build_docker_image) {
-                        const measurementsMsg = `The ${chalk.magenta('<MEASUREMENTS>')} will be replaced by the computed measurements when the docker image is published.`;
-                        const lines = wrapText(measurementsMsg, 70 - 2, 0); // No extra indent, we'll add it manually
-                        lines.forEach(line => console.log('  ' + line));
-                    } else {
-                        const replacements = {};
-                        const measurements = getMeasurements(deployment.environment === 'TEE', deployment.docker_compose_path);
-                        // Pass the object directly, replacePlaceholders will handle JSON stringification
-                        replacements['<MEASUREMENTS>'] = measurements;
-                        
-                        const args = replacePlaceholders(approveCfg.args, replacements);
+  const cmd = new Command("plan");
+  cmd.description("Show the deployment plan");
 
-                        const jsonLines = formatArgs(args).split('\n');
-                        jsonLines.forEach(line => {
-                            console.log('  ' + chalk.magenta(line));
-                        });
-                    }
-                }
-                console.log('');
-                console.log('');
-            } else {
-                console.log(chalk.cyan.bold('✓ Measurements Approval'));
-                console.log(chalk.gray('─'.repeat(70)));
-                console.log('');
-                    logWrapped(chalk.gray('• The measurements won\'t be approved.'), 70, 2);
-                console.log('');
-                console.log('');
-            }
+  // Handle errors for invalid arguments
+  cmd.configureOutput(createCommandErrorHandler("plan", { maxArgs: 0 }));
 
-            // 3b. Approve PPIDs
-            if (deployment.approve_ppids) {
-                console.log(chalk.cyan.bold('✓ PPIDs Approval'));
-                console.log(chalk.gray('─'.repeat(70)));
-                console.log('');
+  cmd.action(async () => {
+    try {
+      // Load deployment config
+      const deployment = getDeploymentConfig();
 
-                const approveCfg = deployment.approve_ppids;
+      // Optionally load NEAR credentials to check if they exist and get account ID
+      const credentials = await getNearCredentialsOptional(deployment.network);
+      const accountId = credentials?.accountId || null;
 
-                logWrapped(`• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with ppids:`, 70, 2);
+      // Optionally load PHALA key
+      const phalaKey = await getPhalaKeyOptional();
 
-                const ppids = await getPpids(deployment.environment === 'TEE');
-                const replacements = { '<PPIDS>': ppids };
-                const args = replacePlaceholders(approveCfg.args, replacements);
+      // Start building the plan output
+      console.log("\n" + chalk.cyan.bold("═".repeat(70)));
+      console.log(chalk.cyan.bold("🔎 DEPLOYMENT PLAN"));
+      console.log(chalk.cyan.bold("═".repeat(70)) + "\n");
 
-                const jsonLines = formatArgs(args).split('\n');
-                jsonLines.forEach(line => {
-                    console.log('  ' + chalk.magenta(line));
-                });
-                console.log('');
-                console.log('');
-            } else {
-                console.log(chalk.cyan.bold('✓ PPIDs Approval'));
-                console.log(chalk.gray('─'.repeat(70)));
-                console.log('');
-                logWrapped(chalk.gray('• The PPIDs won\'t be approved.'), 70, 2);
-                console.log('');
-                console.log('');
-            }
-            
-            // 4. Phala Deployment
-            console.log(chalk.cyan.bold('☁️  Phala Cloud Deployment'));
-            console.log(chalk.gray('─'.repeat(70)));
-            console.log('');
-            if (deployment.environment === 'TEE') {
-                if (deployment.deploy_to_phala) {
-                    const dockerStatus = deployment.build_docker_image ? 'new' : 'existing';
-                    logWrapped(`• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(deployment.deploy_to_phala.app_name)} and the environment variables contained within ${chalk.yellow(deployment.deploy_to_phala.env_file_path)}.`, 70, 2);
-                } else {
-                    logWrapped(chalk.gray('• The agent won\'t be deployed to Phala Cloud.'), 70, 2);
-                }
-            } else {
-                logWrapped(chalk.gray('• The agent won\'t be deployed to Phala Cloud because the environment is local.'), 70, 2);
-            }
-            console.log('');
-            
-            console.log('');
-            // 5. Credentials Check
-            console.log(chalk.cyan.bold('🔐 Required Credentials Status'));
-            console.log(chalk.gray('─'.repeat(70)));
-            console.log('');
-            
-            const missingCredentials = [];
-            
-            if (!credentials) {
-                missingCredentials.push(`${deployment.network} master account`);
-            } else {
-                console.log(`✓ ${chalk.yellow(deployment.network)} master account configured: ${chalk.yellow(accountId)}`);
-            }
-            
-            if (deployment.environment === 'TEE' && deployment.deploy_to_phala && !phalaKey) {
-                missingCredentials.push('PHALA API key');
-            } else if (deployment.environment === 'TEE' && deployment.deploy_to_phala) {
-                console.log('✓ PHALA API key: configured');
-            }
-            
-            if (missingCredentials.length > 0) {
-                console.log(chalk.red.dim('⚠️  Missing Credentials:'));
-                missingCredentials.forEach(cred => {
-                    console.log(chalk.red.dim(`   - ${cred}`));
-                });
-                console.log('');
-                logWrapped(chalk.red.dim('Please run "shade auth set" to configure missing credentials.'));
-            }
-            
-            console.log('');
-            console.log('');            
-        } catch (error) {
-            console.log(chalk.red(`Error generating plan: ${error.message}`));
-            if (error.stack) {
-                console.log(error.stack);
-            }
-            process.exit(1);
+      // 1. Docker Image
+      console.log(chalk.cyan.bold("🐳 Docker Image"));
+      console.log(chalk.gray("─".repeat(70)));
+      console.log("");
+      if (deployment.environment === "TEE") {
+        if (deployment.build_docker_image) {
+          const cacheText = deployment.build_docker_image.cache
+            ? chalk.yellow("with caching")
+            : chalk.yellow("without caching");
+          logWrapped(
+            `• A docker image for your agent will be built according to the ${chalk.yellow(deployment.build_docker_image.dockerfile_path)} file, ${cacheText} and published to ${chalk.yellow(deployment.build_docker_image.tag)}.`,
+            70,
+            2,
+          );
+          console.log("");
+          logWrapped(
+            `• The docker image hash will be updated in your ${chalk.yellow(deployment.docker_compose_path)} file.`,
+            70,
+            2,
+          );
+        } else {
+          logWrapped(chalk.gray("• A new docker image won't be built."), 70, 2);
         }
-    });
-    
-    return cmd;
+      } else {
+        logWrapped(
+          chalk.gray(
+            "• A docker image won't be built because the environment is local.",
+          ),
+          70,
+          2,
+        );
+      }
+      console.log("");
+      console.log("");
+
+      // 2. Contract Deployment
+      if (deployment.agent_contract.deploy_custom) {
+        console.log(chalk.cyan.bold("📜 Agent Contract Deployment"));
+        console.log(chalk.gray("─".repeat(70)));
+        console.log("");
+
+        const contractId = deployment.agent_contract.contract_id;
+        const network = deployment.network;
+        const fundingAmount =
+          deployment.agent_contract.deploy_custom.funding_amount;
+
+        let fundingLine = `with a balance of ${chalk.yellow(fundingAmount + " NEAR")}`;
+        if (accountId) {
+          fundingLine += `, funded from your master account ${chalk.yellow(accountId)}`;
+        } else {
+          fundingLine += `, funded from your master account`;
+        }
+        fundingLine += ".";
+
+        logWrapped(
+          `• The contract account ${chalk.yellow(contractId)} will be created on ${chalk.yellow(network)} ${fundingLine} If the contract account already exists it will be cleared of its existing contract.`,
+          70,
+          2,
+        );
+        console.log("");
+
+        // Deploy from source, WASM, or global hash
+        if (deployment.agent_contract.deploy_custom.source_path) {
+          const sourcePath =
+            deployment.agent_contract.deploy_custom.source_path;
+          logWrapped(
+            `• The agent contract in the ${chalk.yellow(sourcePath)} directory will be compiled then deployed to ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`,
+            70,
+            2,
+          );
+        } else if (deployment.agent_contract.deploy_custom.wasm_path) {
+          const wasmPath = deployment.agent_contract.deploy_custom.wasm_path;
+          logWrapped(
+            `• The agent contract from the WASM file ${chalk.yellow(wasmPath)} will be deployed to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`,
+            70,
+            2,
+          );
+        } else if (deployment.agent_contract.deploy_custom.global_hash) {
+          const globalHash =
+            deployment.agent_contract.deploy_custom.global_hash;
+          logWrapped(
+            `• The agent contract will be deployed using the global hash ${chalk.yellow(globalHash)} to the contract account ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`,
+            70,
+            2,
+          );
+        }
+
+        console.log("");
+
+        // Initialization
+        if (deployment.agent_contract.deploy_custom.init) {
+          const initCfg = deployment.agent_contract.deploy_custom.init;
+          const replacements = {};
+          replacements["<MASTER_ACCOUNT_ID>"] = accountId;
+          replacements["<DEFAULT_MPC_CONTRACT_ID>"] =
+            deployment.network === "mainnet"
+              ? "v1.signer"
+              : "v1.signer-prod.testnet";
+          replacements["<REQUIRES_TEE>"] = deployment.environment === "TEE";
+          const resolvedArgs = replacePlaceholders(initCfg.args, replacements);
+
+          logWrapped(
+            `• The agent contract will be initialized using the '${chalk.yellow(initCfg.method_name)}' method with arguments:`,
+            70,
+            2,
+          );
+          // Indent JSON arguments
+          const jsonLines = formatArgs(resolvedArgs).split("\n");
+          jsonLines.forEach((line) => {
+            console.log("  " + chalk.magenta(line));
+          });
+          if (!accountId) {
+            console.log("");
+            const noteMsg = `The ${chalk.magenta("<MASTER_ACCOUNT_ID>")} will be replaced once the master account is set.`;
+            const lines = wrapText(noteMsg, 70 - 2, 0);
+            lines.forEach((line) => console.log("  " + line));
+          }
+          console.log("");
+
+          // Check if REQUIRES_TEE is in the args
+          const argsStr =
+            typeof initCfg.args === "string"
+              ? initCfg.args
+              : JSON.stringify(initCfg.args);
+          if (argsStr.includes("<REQUIRES_TEE>")) {
+            if (deployment.environment === "TEE") {
+              logWrapped(
+                `• The contract ${chalk.yellow("requires")} the agent to be running in a TEE.`,
+                70,
+                2,
+              );
+            } else {
+              logWrapped(
+                `• The contract ${chalk.yellow("doesn't require")} the agent to be running in a TEE.`,
+                70,
+                2,
+              );
+            }
+            console.log("");
+          }
+        } else {
+          logWrapped(
+            `• The agent contract ${chalk.yellow("won't be initialized")}.`,
+            70,
+            2,
+          );
+          console.log("");
+        }
+
+        // Contract locking status
+        if (deployment.agent_contract.deploy_custom.delete_key) {
+          logWrapped(
+            `• The contract account ${chalk.yellow("will be locked")} (access key deleted) after deployment.`,
+            70,
+            2,
+          );
+        } else {
+          logWrapped(
+            `• The contract account ${chalk.yellow("won't be locked")}.`,
+            70,
+            2,
+          );
+        }
+        console.log("");
+      } else {
+        console.log(chalk.cyan.bold("📜 Agent Contract Deployment"));
+        console.log(chalk.gray("─".repeat(70)));
+        console.log("");
+        const contractId = deployment.agent_contract.contract_id;
+        const network = deployment.network;
+        logWrapped(
+          `• An existing agent contract deployed at ${chalk.yellow(contractId)} on ${chalk.yellow(network)} will be used. You should check that the agent contract is configured for the desired environment (local or TEE).`,
+          70,
+          2,
+        );
+        console.log("");
+      }
+
+      console.log("");
+      // 3. Approve Measurements
+      if (deployment.approve_measurements) {
+        console.log(chalk.cyan.bold("✓ Measurements Approval"));
+        console.log(chalk.gray("─".repeat(70)));
+        console.log("");
+
+        const approveCfg = deployment.approve_measurements;
+
+        logWrapped(
+          `• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with measurements:`,
+          70,
+          2,
+        );
+
+        // Add measurements message below args in same bullet point
+        if (deployment.environment === "TEE") {
+          console.log("");
+          if (deployment.build_docker_image) {
+            const measurementsMsg = `The ${chalk.magenta("<MEASUREMENTS>")} will be replaced by the computed measurements when the docker image is published.`;
+            const lines = wrapText(measurementsMsg, 70 - 2, 0); // No extra indent, we'll add it manually
+            lines.forEach((line) => console.log("  " + line));
+          } else {
+            const replacements = {};
+            const measurements = getMeasurements(
+              deployment.environment === "TEE",
+              deployment.docker_compose_path,
+            );
+            // Pass the object directly, replacePlaceholders will handle JSON stringification
+            replacements["<MEASUREMENTS>"] = measurements;
+
+            const args = replacePlaceholders(approveCfg.args, replacements);
+
+            const jsonLines = formatArgs(args).split("\n");
+            jsonLines.forEach((line) => {
+              console.log("  " + chalk.magenta(line));
+            });
+          }
+        }
+        console.log("");
+        console.log("");
+      } else {
+        console.log(chalk.cyan.bold("✓ Measurements Approval"));
+        console.log(chalk.gray("─".repeat(70)));
+        console.log("");
+        logWrapped(chalk.gray("• The measurements won't be approved."), 70, 2);
+        console.log("");
+        console.log("");
+      }
+
+      // 3b. Approve PPIDs
+      if (deployment.approve_ppids) {
+        console.log(chalk.cyan.bold("✓ PPIDs Approval"));
+        console.log(chalk.gray("─".repeat(70)));
+        console.log("");
+
+        const approveCfg = deployment.approve_ppids;
+
+        logWrapped(
+          `• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with ppids:`,
+          70,
+          2,
+        );
+
+        const ppids = await getPpids(deployment.environment === "TEE");
+        const replacements = { "<PPIDS>": ppids };
+        const args = replacePlaceholders(approveCfg.args, replacements);
+
+        const jsonLines = formatArgs(args).split("\n");
+        jsonLines.forEach((line) => {
+          console.log("  " + chalk.magenta(line));
+        });
+        console.log("");
+        console.log("");
+      } else {
+        console.log(chalk.cyan.bold("✓ PPIDs Approval"));
+        console.log(chalk.gray("─".repeat(70)));
+        console.log("");
+        logWrapped(chalk.gray("• The PPIDs won't be approved."), 70, 2);
+        console.log("");
+        console.log("");
+      }
+
+      // 4. Phala Deployment
+      console.log(chalk.cyan.bold("☁️  Phala Cloud Deployment"));
+      console.log(chalk.gray("─".repeat(70)));
+      console.log("");
+      if (deployment.environment === "TEE") {
+        if (deployment.deploy_to_phala) {
+          const dockerStatus = deployment.build_docker_image
+            ? "new"
+            : "existing";
+          logWrapped(
+            `• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(deployment.deploy_to_phala.app_name)} and the environment variables contained within ${chalk.yellow(deployment.deploy_to_phala.env_file_path)}.`,
+            70,
+            2,
+          );
+        } else {
+          logWrapped(
+            chalk.gray("• The agent won't be deployed to Phala Cloud."),
+            70,
+            2,
+          );
+        }
+      } else {
+        logWrapped(
+          chalk.gray(
+            "• The agent won't be deployed to Phala Cloud because the environment is local.",
+          ),
+          70,
+          2,
+        );
+      }
+      console.log("");
+
+      console.log("");
+      // 5. Credentials Check
+      console.log(chalk.cyan.bold("🔐 Required Credentials Status"));
+      console.log(chalk.gray("─".repeat(70)));
+      console.log("");
+
+      const missingCredentials = [];
+
+      if (!credentials) {
+        missingCredentials.push(`${deployment.network} master account`);
+      } else {
+        console.log(
+          `✓ ${chalk.yellow(deployment.network)} master account configured: ${chalk.yellow(accountId)}`,
+        );
+      }
+
+      if (
+        deployment.environment === "TEE" &&
+        deployment.deploy_to_phala &&
+        !phalaKey
+      ) {
+        missingCredentials.push("PHALA API key");
+      } else if (
+        deployment.environment === "TEE" &&
+        deployment.deploy_to_phala
+      ) {
+        console.log("✓ PHALA API key: configured");
+      }
+
+      if (missingCredentials.length > 0) {
+        console.log(chalk.red.dim("⚠️  Missing Credentials:"));
+        missingCredentials.forEach((cred) => {
+          console.log(chalk.red.dim(`   - ${cred}`));
+        });
+        console.log("");
+        logWrapped(
+          chalk.red.dim(
+            'Please run "shade auth set" to configure missing credentials.',
+          ),
+        );
+      }
+
+      console.log("");
+      console.log("");
+    } catch (error) {
+      console.log(chalk.red(`Error generating plan: ${error.message}`));
+      if (error.stack) {
+        console.log(error.stack);
+      }
+      process.exit(1);
+    }
+  });
+
+  return cmd;
 }

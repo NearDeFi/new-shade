@@ -1,6 +1,6 @@
 /**
  * Test 1: Can't verify with wrong measurements (RTMR2)
- * 
+ *
  * In script: Approve correct PPID, key provider, app compose, all but RTMR2
  * In TEE: Try to register, check it fails
  * In TEE: Try to make a call, check it fails and the reason why
@@ -12,7 +12,7 @@
 import { ShadeClient } from "@neardefi/shade-agent-js";
 
 export default async function testWrongMeasurementsRtmr2(
-  agent: ShadeClient
+  agent: ShadeClient,
 ): Promise<{
   success: boolean;
   agentAccountId: string;
@@ -38,7 +38,8 @@ export default async function testWrongMeasurementsRtmr2(
       methodName: "request_signature",
       args: {
         path: "test-path",
-        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
+        payload:
+          "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });
