@@ -103,9 +103,8 @@ impl Contract {
         );
 
         // Verify the attestation and get the measurements and PPID
-        let (measurements, ppid) = self.verify_attestation(attestation);
+        let (measurements, ppid) = self.verify_attestation(attestation.clone());
 
-        // Agent is valid for the attestation expiration time
         let valid_until_ms = block_timestamp_ms() + self.attestation_expiration_time_ms;
 
         Event::AgentRegistered {
@@ -116,6 +115,7 @@ impl Contract {
             valid_until_ms: U64::from(valid_until_ms),
         }.emit();
 
+        // Agent is valid for the attestation expiration time
         // Register the agent
         self.agents.insert(
             env::predecessor_account_id(),

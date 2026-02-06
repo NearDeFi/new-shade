@@ -1,5 +1,5 @@
 # environment: local | TEE
-environment: TEE
+environment: local
 
 # network: testnet | mainnet
 network: testnet
@@ -49,14 +49,14 @@ agent_contract:
           "requires_tee": <REQUIRES_TEE>,
           "attestation_expiration_time_ms": <7_DAYS>,
           "owner_id": <MASTER_ACCOUNT_ID>,
-          "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>,
+          "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
         }
       # tgas: 30
 
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
-  enabled: false
+  enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
   tag: pivortex/my-first-agent
   cache: true
@@ -92,7 +92,7 @@ approve_ppids:
 # Optional, if not provided the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
-  enabled: false
+  enabled: true
   app_name: my-first-agent
   env_file_path: ./.env
 
