@@ -19,7 +19,7 @@ The main things to check for is that:
 The main thing to check is:
 
 - All keys for an agent running in a TEE has randomly generated private keys, if keys are not randomly generated it should not be able to provide a real attestation.
-- Keys are not leaked from the TEE.
+- Private keys are not leaked from the TEE by accident. For example a function call failing and NAJ emitting the private key
 - Previous keys can not be recovered if code is updated, new code should = fresh keys.
 
 [API](./shade-agent-js/)

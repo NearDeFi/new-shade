@@ -17,8 +17,10 @@ import testWrongPpid from "./tests/test-wrong-ppid";
 import testDifferentAccountId from "./tests/test-different-account-id";
 import testMeasurementsRemoved from "./tests/test-measurements-removed";
 import testPpidRemoved from "./tests/test-ppid-removed";
+import testAttestationExpired from "./tests/test-attestation-expired";
 import testSuccessfulRegistration from "./tests/test-successful-registration";
 import testUniqueKeys from "./tests/test-unique-keys";
+import testFullOperationsWithErrors from "./tests/test-full-operations-with-errors";
 
 // Load environment variables
 dotenv.config();
@@ -247,6 +249,23 @@ app.post("/test/ppid-removed", async (c) => {
   }
 });
 
+app.post("/test/attestation-expired", async (c) => {
+  try {
+    const agent = await createAgent();
+    const result = await testAttestationExpired(agent);
+    return c.json(result);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+        stack: error.stack,
+      },
+      500,
+    );
+  }
+});
+
 app.post("/test/successful-registration", async (c) => {
   try {
     const agent = await createAgent();
@@ -267,6 +286,22 @@ app.post("/test/successful-registration", async (c) => {
 app.post("/test/unique-keys", async (c) => {
   try {
     const result = await testUniqueKeys();
+    return c.json(result);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+        stack: error.stack,
+      },
+      500,
+    );
+  }
+});
+
+app.post("/test/full-operations-with-errors", async (c) => {
+  try {
+    const result = await testFullOperationsWithErrors();
     return c.json(result);
   } catch (error: any) {
     return c.json(
