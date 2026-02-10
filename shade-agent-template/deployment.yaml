@@ -12,7 +12,7 @@ agent_contract:
   # Fill this out with a unique contract id for your agent contract
   # This account should not already be in use
   # For example: example-contract-123.testnet
-  contract_id:
+  contract_id: 
 
   # Optional, if not enabled the contract will not be deployed
   # and it's assumed the agent contract is already deployed to the contract_id
@@ -49,7 +49,7 @@ agent_contract:
       args: |
         {
           "requires_tee": <REQUIRES_TEE>,
-          "attestation_expiration_time_ms": "<7_DAYS>",
+          "attestation_expiration_time_ms": <7_DAYS>,
           "owner_id": <MASTER_ACCOUNT_ID>,
           "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
         }
