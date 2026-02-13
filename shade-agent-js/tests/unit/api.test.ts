@@ -444,7 +444,7 @@ describe("ShadeClient", () => {
 
       expect(ensureKeysSetup).toHaveBeenCalled();
       // Verify keys were added to the client
-      const keys = client.getPrivateKeys(true);
+      const keys = client.getPrivateKeys({ acknowledgeRisk: true });
       expect(keys).toContain(testPrivateKey);
       expect(keys).toContain(additionalKey);
     });
@@ -636,26 +636,48 @@ describe("ShadeClient", () => {
   });
 
   describe("getPrivateKeys", () => {
-    it("should throw error if acknowledgeRisk is not true", async () => {
+    it("should throw when called with plain true (not an object)", async () => {
       setupClientMocks();
       const client = await ShadeClient.create({});
 
-      expect(() => client.getPrivateKeys()).toThrow(
-        "WARNING: Exporting private keys from the library is a risky operation",
-      );
-
-      expect(() => client.getPrivateKeys(false)).toThrow(
+      expect(() =>
+        client.getPrivateKeys(true as unknown as { acknowledgeRisk: true }),
+      ).toThrow(
         "WARNING: Exporting private keys from the library is a risky operation",
       );
     });
 
-    it("should return private keys when acknowledgeRisk is true", async () => {
+    it("should throw when called with { acknowledgeRisk: false }", async () => {
+      setupClientMocks();
+      const client = await ShadeClient.create({});
+
+      expect(() =>
+        client.getPrivateKeys({
+          acknowledgeRisk: false as unknown as true,
+        }),
+      ).toThrow(
+        "WARNING: Exporting private keys from the library is a risky operation",
+      );
+    });
+
+    it("should throw when called with empty object", async () => {
+      setupClientMocks();
+      const client = await ShadeClient.create({});
+
+      expect(() =>
+        client.getPrivateKeys({} as { acknowledgeRisk: true }),
+      ).toThrow(
+        "WARNING: Exporting private keys from the library is a risky operation",
+      );
+    });
+
+    it("should return private keys only when called with { acknowledgeRisk: true }", async () => {
       setupClientMocks();
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
       const client = await ShadeClient.create({});
 
-      const keys = client.getPrivateKeys(true);
+      const keys = client.getPrivateKeys({ acknowledgeRisk: true });
 
       expect(keys).toEqual([testPrivateKey]);
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -665,7 +687,7 @@ describe("ShadeClient", () => {
       consoleSpy.mockRestore();
     });
 
-    it("should return all keys including added keys", async () => {
+    it("should return all keys including added keys when using { acknowledgeRisk: true }", async () => {
       setupClientMocks({ keysToAdd: [], wasChecked: false });
       const additionalKey = generateTestKey("additional-key");
       vi.mocked(ensureKeysSetup).mockResolvedValue({
@@ -684,10 +706,9 @@ describe("ShadeClient", () => {
         numKeys: 2,
       });
 
-      // Call a method to trigger key addition
       await client.call({ methodName: "test", args: {} });
 
-      const keys = client.getPrivateKeys(true);
+      const keys = client.getPrivateKeys({ acknowledgeRisk: true });
 
       expect(keys).toHaveLength(2);
       expect(keys).toContain(testPrivateKey);

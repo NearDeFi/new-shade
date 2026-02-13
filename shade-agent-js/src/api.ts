@@ -326,12 +326,11 @@ export class ShadeClient {
 
   /**
    * Gets the agent's private keys (use with caution)
-   * @param acknowledgeRisk - Must be set to true to acknowledge the risk of exporting private keys
+   * @param params - Must pass `{ acknowledgeRisk: true }`
    * @returns Array of private key strings
-   * @throws Error if acknowledgeRisk is not set to true
    */
-  getPrivateKeys(acknowledgeRisk: boolean = false): string[] {
-    if (!acknowledgeRisk) {
+  getPrivateKeys(params: { acknowledgeRisk: true }): string[] {
+    if (!params.acknowledgeRisk) {
       throw new Error(
         "WARNING: Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Do not use the keys to sign transactions other than to the agent contract. Please acknowledge the risk by setting acknowledgeRisk to true.",
       );
